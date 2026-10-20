@@ -1,0 +1,125 @@
+import React, { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+const activeIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const inactiveIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+interface Vendor {
+  id: string;
+  name: string;
+  category: string;
+  isOpen: boolean;
+  lat: number;
+  lng: number;
+}
+
+const RecenterMap = ({ markers }: { markers: [number, number][] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (markers.length > 0) {
+      const bounds = L.latLngBounds(markers);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+  }, [markers, map]);
+  return null;
+};
+
+export const LiveVendorMap: React.FC<{ onVendorSelect?: (id: string) => void }> = ({ onVendorSelect }) => {
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [activeCount, setActiveCount] = useState<number>(0);
+
+  useEffect(() => {
+    // 📡 Live Firebase Snapshot Listener
+    const unsubscribe = onSnapshot(collection(db, 'vendors'), (snapshot) => {
+      let active = 0;
+      const validVendors: Vendor[] = [];
+
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (data.isOpen) active++;
+
+        const lat = Number(data.lat ?? data.latitude ?? data.location?.latitude ?? 0);
+        const lng = Number(data.lng ?? data.longitude ?? data.location?.longitude ?? 0);
+
+        if (!Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0) {
+          validVendors.push({
+            id: doc.id,
+            name: data.name || data.stallName || 'Vendor Stall',
+            category: data.category || 'General',
+            isOpen: data.isOpen === true,
+            lat,
+            lng,
+          });
+        }
+      });
+
+      setActiveCount(active);
+      setVendors(validVendors);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const markerPositions: [number, number][] = vendors.map((v) => [v.lat, v.lng]);
+
+  return (
+    <div style={{ background: '#fff', borderRadius: '12px', padding: '16px', border: '1px solid #EDD9C6', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '14px', color: '#C7A98A', letterSpacing: '0.5px' }}>LIVE VENDOR LOCATIONS</h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#2D1A0E' }}>Real-time geographic status of active stalls</p>
+        </div>
+        <span style={{ background: '#E8F5E9', color: '#2E7D32', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+          ● {activeCount} Active Stalls
+        </span>
+      </div>
+
+      <div style={{ height: '350px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+        <MapContainer center={[2.9369, 101.7914]} zoom={13} style={{ height: '100%', width: '100%' }}>
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {markerPositions.length > 0 && <RecenterMap markers={markerPositions} />}
+          {vendors.map((vendor) => (
+            <Marker
+              key={vendor.id}
+              position={[vendor.lat, vendor.lng]}
+              icon={vendor.isOpen ? activeIcon : inactiveIcon}
+              eventHandlers={{
+                click: () => onVendorSelect && onVendorSelect(vendor.id),
+              }}
+            >
+              <Popup>
+                <strong>{vendor.name}</strong>
+                <br />
+                Category: {vendor.category}
+                <br />
+                Status: <span style={{ color: vendor.isOpen ? 'green' : 'red' }}>{vendor.isOpen ? 'Open' : 'Closed'}</span>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+    </div>
+  );
+};

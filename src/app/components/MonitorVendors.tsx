@@ -9,26 +9,37 @@ type Filter = "All" | "Open" | "Closed";
 interface Props {
   onBack: () => void;
   onVendorDetail: (vendor: Vendor) => void;
+  vendors?: Vendor[];
+  onEditListing?: (vendor: Vendor) => void;
+  onDeleteListing?: (id: string) => Promise<void>;
 }
 
-export function MonitorVendors({ onBack, onVendorDetail }: Props) {
-  const [vendors, setVendors] = useState<Vendor[]>([]);
+export function MonitorVendors({ onBack, onVendorDetail, vendors: initialVendors, onEditListing, onDeleteListing }: Props) {
+  const [vendors, setVendors] = useState<Vendor[]>(initialVendors || []);
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
-      const v = snapshot.docs.map(doc => {
+      const v = snapshot.docs.map((doc) => {
         const data = doc.data();
+        const latitude = Number(data.latitude ?? data.lat ?? 0);
+        const longitude = Number(data.longitude ?? data.lng ?? 0);
+
         return {
+          id: doc.id,
           vendorId: doc.id,
-          stallName: data.stallName || "Unknown",
+          name: data.name || data.stallName || "Unknown",
+          stallName: data.stallName || data.name || "Unknown",
           description: data.description || "",
           category: data.category || "Unknown",
-          openingHours: data.openingHours || "",
-          isOpen: data.isOpen || false,
-          latitude: data.latitude || 0,
-          longitude: data.longitude || 0,
+          openingHours: data.openingHours || data.hours || "",
+          hours: data.hours || data.openingHours || "",
+          isOpen: Boolean(data.isOpen),
+          latitude: Number.isFinite(latitude) ? latitude : 0,
+          longitude: Number.isFinite(longitude) ? longitude : 0,
+          lat: Number.isFinite(latitude) ? latitude : 0,
+          lng: Number.isFinite(longitude) ? longitude : 0,
           imageUrl: data.imageUrl || "",
         } as Vendor;
       });

@@ -78,6 +78,137 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+html.dark {
+  color-scheme: dark;
+  --background: #171614;
+  --foreground: #f3ede5;
+  --card: #211f1b;
+  --card-foreground: #f3ede5;
+  --popover: #211f1b;
+  --popover-foreground: #f3ede5;
+  --border: #3a352e;
+  --input: #302c26;
+  --input-background: #302c26;
+  --sidebar: #211f1b;
+  --sidebar-foreground: #f3ede5;
+  --sidebar-border: #3a352e;
+}
+
+html.dark body,
+html.dark #root {
+  background: #171614 !important;
+  color: #f3ede5;
+}
+
+html.dark main {
+  background: #171614 !important;
+}
+
+html.dark aside,
+html.dark header {
+  background: #211f1b !important;
+  border-color: #3a352e !important;
+}
+
+html.dark [style*="background: rgb(255, 255, 255)"],
+html.dark [style*="background: rgb(255, 255, 255);"],
+html.dark [style*="background: rgb(248, 247, 243)"],
+html.dark [style*="background: rgba(255, 255, 255, 0.94)"] {
+  background: #211f1b !important;
+}
+
+html.dark [style*="background: rgb(250, 248, 244)"],
+html.dark [style*="background: rgb(246, 243, 237)"],
+html.dark [style*="background: rgb(244, 239, 231)"],
+html.dark [style*="background: rgb(245, 248, 246)"] {
+  background: #2a2722 !important;
+}
+
+html.dark [style*="background: rgb(253, 240, 232)"],
+html.dark [style*="background: rgb(255, 240, 232)"],
+html.dark [style*="background: rgb(255, 242, 233)"],
+html.dark [style*="background: rgb(253, 246, 238)"],
+html.dark [style*="background: rgb(251, 243, 232)"] {
+  background: #38291f !important;
+}
+
+html.dark [style*="background: rgb(234, 247, 238)"],
+html.dark [style*="background: rgb(234, 246, 239)"],
+html.dark [style*="background: rgb(232, 245, 233)"],
+html.dark [style*="background: rgb(245, 250, 246)"] {
+  background: #203128 !important;
+}
+
+html.dark [style*="background: rgb(253, 234, 222)"],
+html.dark [style*="background: rgb(255, 240, 237)"],
+html.dark [style*="background: rgb(255, 249, 239)"],
+html.dark [style*="background: rgb(255, 248, 236)"],
+html.dark [style*="background: rgb(255, 235, 238)"] {
+  background: #382522 !important;
+}
+
+html.dark [style*="border: 1px solid rgb(233, 229, 221)"],
+html.dark [style*="border: 1px solid rgb(237, 217, 198)"],
+html.dark [style*="border: 1px solid rgb(240, 230, 216)"],
+html.dark [style*="border-bottom: 1px solid rgb(233, 229, 221)"],
+html.dark [style*="border-bottom: 1px solid rgb(245, 237, 227)"],
+html.dark [style*="border-right: 1px solid rgb(233, 229, 221)"],
+html.dark [style*="border-color: rgb(233, 229, 221)"] {
+  border-color: #3a352e !important;
+}
+
+html.dark [style*="color: rgb(45, 36, 29)"],
+html.dark [style*="color: rgb(45, 26, 14)"],
+html.dark [style*="color: rgb(67, 58, 49)"],
+html.dark [style*="color: rgb(101, 88, 72)"],
+html.dark [style*="color: rgb(117, 104, 91)"] {
+  color: #f0e8de !important;
+}
+
+html.dark [style*="color: rgb(130, 118, 106)"],
+html.dark [style*="color: rgb(148, 135, 121)"],
+html.dark [style*="color: rgb(161, 123, 88)"],
+html.dark [style*="color: rgb(122, 92, 46)"],
+html.dark [style*="color: rgb(199, 169, 138)"],
+html.dark [style*="color: rgb(155, 123, 91)"] {
+  color: #b9aa98 !important;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  color-scheme: dark;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #211f1b;
+  color: #f0e8de;
+  border-color: #3a352e;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #a99b8a;
+}
+
+html.dark .recharts-cartesian-axis-tick-value,
+html.dark .recharts-legend-item-text {
+  fill: #b9aa98 !important;
+  color: #b9aa98 !important;
+}
+
+html.dark .recharts-cartesian-grid line {
+  stroke: #3a352e !important;
+}
+
+html.dark .leaflet-popup-content-wrapper,
+html.dark .leaflet-popup-tip {
+  background: #211f1b;
+  color: #f0e8de;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

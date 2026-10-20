@@ -1,13 +1,20 @@
 export interface Vendor {
-  vendorId: string;
-  stallName: string;
-  description: string;
-  category: string;
-  openingHours: string;
-  isOpen: boolean;
-  latitude: number;
-  longitude: number;
-  imageUrl: string;
+  id?: string;
+  vendorId?: string;
+  name?: string;
+  stallName?: string;
+  description?: string;
+  category?: string;
+  openingHours?: string;
+  hours?: string;
+  isOpen?: boolean;
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
+  imageUrl?: string;
+  isAccountDisabled?: boolean;
+  createdAt?: Date | null;
 }
 
 export interface User {

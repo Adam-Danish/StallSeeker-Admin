@@ -1,174 +1,244 @@
-import { ArrowLeft, Store, MapPin, Power, Clock, Utensils } from "lucide-react";
-import type { Vendor } from "./types";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "../../firebase";
+import React, { useState, useEffect } from 'react';
+import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { Utensils, Plus, Trash2, ArrowLeft, Power } from 'lucide-react';
+import type { Vendor } from './types';
 
-interface Props {
-  vendor: Vendor;
-  onBack: () => void;
-  onSuspend?: () => void;
-  onReactivate?: () => void;
+interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
 }
 
-export function VendorDetail({ vendor, onBack }: Props) {
-  const isOffline = !vendor.isOpen;
+interface VendorDetailProps {
+  vendor: Vendor;
+  onBack: () => void;
+  onSuspend: () => void;
+  onReactivate: () => void;
+}
 
-  const toggleStatus = async (isOpen: boolean) => {
-    try {
-      await updateDoc(doc(db, "vendors", vendor.vendorId), {
-        isOpen: isOpen,
-      });
-    } catch (e) {
-      console.error("Error updating status:", e);
-      alert("Failed to update status. Check console.");
-    }
+export const VendorDetail: React.FC<VendorDetailProps> = ({
+  vendor,
+  onBack,
+  onSuspend,
+  onReactivate,
+}) => {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemPrice, setNewItemPrice] = useState('');
+
+  const vendorId = vendor.id ?? vendor.vendorId;
+  const vendorName = vendor.stallName || vendor.name || 'Vendor';
+  const vendorCategory = vendor.category || 'General';
+  const vendorHours = vendor.openingHours || vendor.hours || '8:00 AM - 5:00 PM';
+  const vendorLatitude = vendor.latitude ?? vendor.lat ?? 0;
+  const vendorLongitude = vendor.longitude ?? vendor.lng ?? 0;
+  const vendorStatus = Boolean(vendor.isOpen);
+
+  // Fetch menu subcollection in real-time
+  useEffect(() => {
+    if (!vendorId) return;
+    const menuRef = collection(db, 'vendors', vendorId, 'menu');
+    const unsubscribe = onSnapshot(menuRef, (snapshot) => {
+      const items: MenuItem[] = snapshot.docs.map((d) => ({
+        id: d.id,
+        name: d.data().name || '',
+        price: Number(d.data().price) || 0,
+      }));
+      setMenuItems(items);
+    });
+    return () => unsubscribe();
+  }, [vendorId]);
+
+  const handleAddItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorId || !newItemName.trim() || !newItemPrice) return;
+
+    await addDoc(collection(db, 'vendors', vendorId, 'menu'), {
+      name: newItemName.trim(),
+      price: parseFloat(newItemPrice),
+    });
+
+    setNewItemName('');
+    setNewItemPrice('');
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    if (!vendorId) return;
+    await deleteDoc(doc(db, 'vendors', vendorId, 'menu', itemId));
   };
 
   return (
-    <div className="p-8 max-w-4xl">
-      {/* Breadcrumb */}
+    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Back Button */}
       <button
         onClick={onBack}
-        className="flex items-center gap-1.5 mb-6 active:opacity-70"
-        style={{ background: "none", border: "none", cursor: "pointer" }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          color: '#F05A1A',
+          background: 'none',
+          border: 'none',
+          fontWeight: 600,
+          cursor: 'pointer',
+          marginBottom: '20px',
+        }}
       >
-        <ArrowLeft size={16} color="#F05A1A" />
-        <span style={{ fontSize: "13px", color: "#F05A1A", fontWeight: 600 }}>Back to Monitor Vendors</span>
+        <ArrowLeft size={16} /> Back to Monitor Vendors
       </button>
 
-      {/* Vendor Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "#FDF0E8", border: "1px solid #EDD9C6" }}
-          >
-            {vendor.imageUrl ? (
-              <img src={vendor.imageUrl} alt={vendor.stallName} className="w-full h-full rounded-2xl object-cover" />
-            ) : (
-              <Store size={30} color="#F05A1A" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#2D1A0E" }}>{vendor.stallName}</h2>
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  background: vendor.isOpen ? "#EAF7EE" : "#FDEADE",
-                  color: vendor.isOpen ? "#27AE60" : "#EB5757",
-                  padding: "3px 10px",
-                  borderRadius: "99px",
-                }}
-              >
-                {vendor.isOpen ? "Open" : "Closed"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin size={13} color="#C7A98A" />
-              <span style={{ fontSize: "13px", color: "#9B7B5B" }}>
-                {vendor.latitude.toFixed(4)}, {vendor.longitude.toFixed(4)}
-              </span>
-            </div>
-          </div>
+      {/* Header Info */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '24px', color: '#2D1A0E' }}>{vendorName}</h2>
+          <p style={{ margin: 0, color: '#C7A98A', fontSize: '14px' }}>
+            📍 {vendorLatitude}, {vendorLongitude}
+          </p>
         </div>
-        {/* Admin Controls */}
-        <div className="flex items-center gap-3">
-          {isOffline ? (
-            <button
-              onClick={() => toggleStatus(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl active:opacity-80"
-              style={{ background: "#27AE60", border: "none", cursor: "pointer" }}
-            >
-              <Power size={15} color="#fff" />
-              <span style={{ color: "#fff", fontSize: "13px", fontWeight: 600 }}>Mark as Open</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => toggleStatus(false)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl active:opacity-80"
-              style={{ background: "#EB5757", border: "none", cursor: "pointer" }}
-            >
-              <Power size={15} color="#fff" />
-              <span style={{ color: "#fff", fontSize: "13px", fontWeight: 600 }}>Mark as Closed</span>
-            </button>
-          )}
+        <button
+          onClick={vendorStatus ? onSuspend : onReactivate}
+          style={{
+            background: vendorStatus ? '#EF4444' : '#10B981',
+            color: '#fff',
+            border: 'none',
+            padding: '10px 18px',
+            borderRadius: '10px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <Power size={16} />
+          {vendorStatus ? 'Mark as Closed' : 'Mark as Open'}
+        </button>
+      </div>
+
+      {/* Info Cards Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
+          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>STATUS</p>
+          <p style={{ color: vendorStatus ? '#10B981' : '#EF4444', fontWeight: 700, fontSize: '18px', margin: 0 }}>
+            {vendorStatus ? 'Open' : 'Closed'}
+          </p>
+        </div>
+        <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
+          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>CATEGORY</p>
+          <p style={{ color: '#F05A1A', fontWeight: 700, fontSize: '18px', margin: 0 }}>{vendorCategory}</p>
+        </div>
+        <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
+          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>HOURS</p>
+          <p style={{ color: '#2D1A0E', fontWeight: 700, fontSize: '18px', margin: 0 }}>{vendorHours}</p>
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid gap-5" style={{ gridTemplateColumns: "1fr 300px" }}>
-        {/* Left */}
-        <div className="flex flex-col gap-5">
-          {/* Status Cards */}
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              {
-                icon: <Power size={18} color={isOffline ? "#EB5757" : "#27AE60"} />,
-                bg: isOffline ? "#FDEADE" : "#EAF7EE",
-                label: "Current Status",
-                value: vendor.isOpen ? "Open" : "Closed",
-                color: isOffline ? "#EB5757" : "#27AE60",
-              },
-              {
-                icon: <Utensils size={18} color="#F05A1A" />,
-                bg: "#FDF0E8",
-                label: "Category",
-                value: vendor.category || "Uncategorized",
-                color: "#F05A1A",
-              },
-            ].map((s, i) => (
-              <div key={i} className="rounded-2xl p-4" style={{ background: "#fff", border: "1px solid #EDD9C6" }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: s.bg }}>
-                  {s.icon}
+      {/* 🍔 MANAGE MENU SECTION */}
+      <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #EDD9C6', padding: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <div style={{ background: '#FDF0E8', padding: '8px', borderRadius: '8px', color: '#F05A1A' }}>
+            <Utensils size={20} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Manage Stall Menu</h3>
+            <p style={{ margin: 0, fontSize: '12px', color: '#C7A98A' }}>Add or delete food items offered by this vendor</p>
+          </div>
+        </div>
+
+        {/* Add Item Form */}
+        <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+          <input
+            type="text"
+            placeholder="Item Name (e.g. Nasi Lemak Biasa)"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            style={{
+              flex: 2,
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: '1px solid #EDD9C6',
+              outline: 'none',
+              fontSize: '14px',
+            }}
+          />
+          <input
+            type="number"
+            step="0.01"
+            placeholder="Price (RM)"
+            value={newItemPrice}
+            onChange={(e) => setNewItemPrice(e.target.value)}
+            style={{
+              flex: 1,
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: '1px solid #EDD9C6',
+              outline: 'none',
+              fontSize: '14px',
+            }}
+          />
+          <button
+            type="submit"
+            style={{
+              background: '#F05A1A',
+              color: '#fff',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Plus size={16} /> Add Item
+          </button>
+        </form>
+
+        {/* Menu Items List */}
+        {menuItems.length === 0 ? (
+          <p style={{ textAlign: 'center', color: '#C7A98A', padding: '20px 0', margin: 0, fontSize: '14px' }}>
+            No menu items found. Add one above!
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {menuItems.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 16px',
+                  background: '#FDF0E8',
+                  borderRadius: '10px',
+                  border: '1px solid #EDD9C6',
+                }}
+              >
+                <span style={{ fontWeight: 600, color: '#2D1A0E', fontSize: '14px' }}>{item.name}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ fontWeight: 700, color: '#F05A1A', fontSize: '14px' }}>
+                    RM {item.price.toFixed(2)}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteItem(item.id)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#EF4444',
+                      cursor: 'pointer',
+                      padding: '4px',
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                <p style={{ fontSize: "22px", fontWeight: 700, color: s.color }}>{s.value}</p>
-                <p style={{ fontSize: "12px", color: "#9B7B5B", marginTop: "2px" }}>{s.label}</p>
               </div>
             ))}
           </div>
-
-          <div className="rounded-2xl p-5" style={{ background: "#fff", border: "1px solid #EDD9C6", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-             <p style={{ fontSize: "12px", fontWeight: 700, color: "#C7A98A", letterSpacing: "0.08em", marginBottom: "14px" }}>
-                ABOUT THIS VENDOR
-             </p>
-             <p style={{ fontSize: "14px", color: "#7A5C2E", lineHeight: "1.6" }}>
-               {vendor.description || "No description provided."}
-             </p>
-          </div>
-        </div>
-
-        {/* Right: Vendor Details Sidebar */}
-        <div className="flex flex-col gap-5">
-          <div className="rounded-2xl p-5" style={{ background: "#fff", border: "1px solid #EDD9C6", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-            <p style={{ fontSize: "12px", fontWeight: 700, color: "#C7A98A", letterSpacing: "0.08em", marginBottom: "14px" }}>VENDOR DETAILS</p>
-            <div className="flex flex-col gap-4">
-              {[
-                { icon: <MapPin size={14} color="#F05A1A" />, bg: "#FDF0E8", label: "Coordinates", value: `${vendor.latitude.toFixed(3)}, ${vendor.longitude.toFixed(3)}`, color: "#2D1A0E" },
-                {
-                  icon: <Power size={14} color={isOffline ? "#EB5757" : "#27AE60"} />,
-                  bg: isOffline ? "#FDEADE" : "#EAF7EE",
-                  label: "Current Status",
-                  value: vendor.isOpen ? "Open" : "Closed",
-                  color: isOffline ? "#EB5757" : "#27AE60",
-                },
-                { icon: <Clock size={14} color="#9B7B5B" />, bg: "#F0E6D8", label: "Opening Hours", value: vendor.openingHours || "Not specified", color: "#2D1A0E" },
-              ].map((d, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: d.bg }}>
-                    {d.icon}
-                  </div>
-                  <div>
-                    <p style={{ fontSize: "11px", color: "#C7A98A" }}>{d.label}</p>
-                    <p style={{ fontSize: "13px", fontWeight: 600, color: d.color }}>{d.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
-}
+};

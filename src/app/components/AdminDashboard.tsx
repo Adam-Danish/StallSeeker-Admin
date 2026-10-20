@@ -1,143 +1,376 @@
-import { useState, useEffect } from "react";
-import { Store, Users, Power, PowerOff, TrendingUp } from "lucide-react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle,
+  Clock3,
+  Power,
+  PowerOff,
+  Store,
+  Users,
+} from "lucide-react";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
+import { DashboardCharts, type DashboardPeriod, type DashboardVendor } from "./DashboardCharts";
 
 interface Props {
   onMonitorVendors: () => void;
+  onManageUsers: () => void;
 }
 
-export function AdminDashboard({ onMonitorVendors }: Props) {
-  const [vendorCount, setVendorCount] = useState(0);
-  const [openStallsCount, setOpenStallsCount] = useState(0);
-  const [offlineStallsCount, setOfflineStallsCount] = useState(0);
-  const [userCount, setUserCount] = useState(0);
+interface DashboardUser {
+  id: string;
+  name: string;
+  role: string;
+  isAccountDisabled: boolean;
+  createdAt: Date | null;
+}
+
+type ListenerStatus = "connecting" | "connected" | "error";
+
+function toDate(value: unknown): Date | null {
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
+
+  if (typeof value === "object" && value !== null && "toDate" in value) {
+    const toDateMethod = value.toDate;
+    if (typeof toDateMethod === "function") {
+      const date = toDateMethod.call(value);
+      if (date instanceof Date && Number.isFinite(date.getTime())) return date;
+    }
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    if (Number.isFinite(date.getTime())) return date;
+  }
+
+  return null;
+}
+
+function formatActivityTime(date: Date): string {
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const cardStyle = {
+  background: "#fff",
+  border: "1px solid #e9e5dd",
+  boxShadow: "0 8px 24px rgba(45, 26, 14, 0.045)",
+};
+
+export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
+  const [vendors, setVendors] = useState<DashboardVendor[]>([]);
+  const [users, setUsers] = useState<DashboardUser[]>([]);
+  const [vendorStatus, setVendorStatus] = useState<ListenerStatus>("connecting");
+  const [userStatus, setUserStatus] = useState<ListenerStatus>("connecting");
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [period, setPeriod] = useState<DashboardPeriod>("7d");
 
   useEffect(() => {
-    // Listen to vendors collection
-    const vendorsUnsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
-      setVendorCount(snapshot.size);
-      
-      let open = 0;
-      let offline = 0;
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.isOpen) {
-          open++;
-        } else {
-          offline++;
-        }
-      });
-      setOpenStallsCount(open);
-      setOfflineStallsCount(offline);
-    });
-
-    // Listen to users collection
-    const usersUnsubscribe = onSnapshot(
-      collection(db, "users"),
+    const updateLastSynced = () => setLastSynced(new Date());
+    const unsubscribeVendors = onSnapshot(
+      collection(db, "vendors"),
       (snapshot) => {
-        setUserCount(snapshot.size);
+        setVendors(
+          snapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              name: String(data.stallName ?? data.name ?? "").trim(),
+              category: String(data.category ?? "").trim(),
+              openingHours: String(data.openingHours ?? data.hours ?? "").trim(),
+              isOpen: data.isOpen === true,
+              isAccountDisabled: data.isAccountDisabled === true,
+              createdAt: toDate(data.createdAt),
+            };
+          })
+        );
+        setVendorStatus("connected");
+        updateLastSynced();
       },
       (error) => {
-        console.error("Error fetching users:", error);
-        // If it's a permission error, we'll set it to a negative number to indicate an error state in the UI
-        if (error.code === 'permission-denied') {
-          setUserCount(-1); 
-        }
+        console.error("Error loading dashboard vendors:", error);
+        setVendorStatus("error");
+      }
+    );
+
+    const unsubscribeUsers = onSnapshot(
+      collection(db, "users"),
+      (snapshot) => {
+        setUsers(
+          snapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              name: String(data.fullName ?? data.name ?? data.displayName ?? data.username ?? "User"),
+              role: String(data.role ?? data.userRole ?? data.type ?? "customer").toLowerCase(),
+              isAccountDisabled: data.isAccountDisabled === true,
+              createdAt: toDate(data.createdAt),
+            };
+          })
+        );
+        setUserStatus("connected");
+        updateLastSynced();
+      },
+      (error) => {
+        console.error("Error loading dashboard users:", error);
+        setUserStatus("error");
       }
     );
 
     return () => {
-      vendorsUnsubscribe();
-      usersUnsubscribe();
+      unsubscribeVendors();
+      unsubscribeUsers();
     };
   }, []);
 
+  const incompleteVendors = useMemo(
+    () => vendors.filter((vendor) => !vendor.name || !vendor.category || !vendor.openingHours),
+    [vendors]
+  );
+  const disabledAccounts =
+    vendors.filter((vendor) => vendor.isAccountDisabled).length +
+    users.filter((user) => user.isAccountDisabled).length;
+  const recentActivity = useMemo(
+    () =>
+      [
+        ...vendors
+          .filter((vendor) => vendor.createdAt)
+          .map((vendor) => ({
+            id: `vendor-${vendor.id}`,
+            title: vendor.name || "Unnamed vendor",
+            detail: "Vendor listing added",
+            createdAt: vendor.createdAt as Date,
+            icon: <Store size={16} />,
+          })),
+        ...users
+          .filter((user) => user.createdAt)
+          .map((user) => ({
+            id: `user-${user.id}`,
+            title: user.name,
+            detail: `${user.role === "vendor" ? "Vendor" : "User"} account registered`,
+            createdAt: user.createdAt as Date,
+            icon: <Users size={16} />,
+          })),
+      ]
+        .sort((first, second) => second.createdAt.getTime() - first.createdAt.getTime())
+        .slice(0, 6),
+    [users, vendors]
+  );
+
+  const systemStatus: ListenerStatus =
+    vendorStatus === "error" || userStatus === "error"
+      ? "error"
+      : vendorStatus === "connected" && userStatus === "connected"
+        ? "connected"
+        : "connecting";
+  const statusText =
+    systemStatus === "connected"
+      ? "Live data connected"
+      : systemStatus === "error"
+        ? "Some data could not be loaded"
+        : "Connecting to live data";
+
+  const summaryCards = [
+    { label: "Total vendors", value: vendors.length, color: "#d95316", bg: "#fff0e8", icon: <Store size={19} /> },
+    { label: "Open stalls", value: vendors.filter((vendor) => vendor.isOpen).length, color: "#15845b", bg: "#eaf6ef", icon: <Power size={19} /> },
+    { label: "Offline stalls", value: vendors.filter((vendor) => !vendor.isOpen).length, color: "#c34b44", bg: "#fff0ed", icon: <PowerOff size={19} /> },
+    { label: "Registered users", value: users.length, color: "#785333", bg: "#f4efe7", icon: <Users size={19} /> },
+  ];
+
   return (
-    <div className="p-8">
-      {/* Page Title */}
-      <div className="mb-8">
-        <h2 style={{ fontSize: "26px", fontWeight: 700, color: "#2D1A0E" }}>Good morning, Admin 👋</h2>
-        <p style={{ fontSize: "14px", color: "#9B7B5B", marginTop: "4px" }}>Here's an overview of your platform today.</p>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
+            StallSeeker overview
+          </p>
+          <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
+            Good morning, Admin
+          </h2>
+          <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
+            Here’s what’s happening across your platform.
+          </p>
+        </div>
+        <div
+          className="flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold"
+          style={{
+            color: systemStatus === "connected" ? "#14734f" : systemStatus === "error" ? "#b54740" : "#876d4d",
+            background: systemStatus === "connected" ? "#eaf6ef" : systemStatus === "error" ? "#fff0ed" : "#f4efe7",
+          }}
+        >
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{
+              background: systemStatus === "connected" ? "#22a06b" : systemStatus === "error" ? "#d05c52" : "#c49b61",
+            }}
+          />
+          {statusText}
+        </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-5 mb-8">
-        {[
-          { label: "Total Vendors", value: vendorCount.toString(), color: "#F05A1A", bg: "#FDF0E8", icon: <Store size={20} color="#F05A1A" /> },
-          { label: "Open Stalls", value: openStallsCount.toString(), color: "#27AE60", bg: "#EAF7EE", icon: <Power size={20} color="#27AE60" /> },
-          { label: "Offline Stalls", value: offlineStallsCount.toString(), color: "#EB5757", bg: "#FDEADE", icon: <PowerOff size={20} color="#EB5757" /> },
-          { 
-            label: "Total Users", 
-            value: userCount === -1 ? "Blocked" : userCount.toString(), 
-            color: userCount === -1 ? "#EB5757" : "#2F80ED", 
-            bg: userCount === -1 ? "#FDEADE" : "#EBF3FD", 
-            icon: <Users size={20} color={userCount === -1 ? "#EB5757" : "#2F80ED"} /> 
-          },
-        ].map((card) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((card) => (
           <div
             key={card.label}
-            className="rounded-2xl p-5 flex flex-col gap-3"
-            style={{ background: "#fff", border: "1px solid #EDD9C6", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
+            className="group rounded-2xl p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            style={cardStyle}
           >
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: card.bg }}>
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{ background: card.bg, color: card.color }}
+              >
                 {card.icon}
               </div>
-              <TrendingUp size={14} color="#C7A98A" />
+              <p className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>{card.value}</p>
             </div>
-            <div>
-              <p style={{ fontSize: "32px", fontWeight: 700, color: card.color, lineHeight: 1 }}>{card.value}</p>
-              <p style={{ fontSize: "13px", fontWeight: 600, color: "#2D1A0E", marginTop: "4px" }}>{card.label}</p>
-            </div>
+            <p className="mt-3 text-sm font-medium" style={{ color: "#82766a" }}>{card.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Bottom grid: Quick Actions + Info */}
-      <div className="grid grid-cols-3 gap-5">
-        {/* Quick Actions */}
-        <div
-          className="rounded-2xl p-6 col-span-1"
-          style={{ background: "#fff", border: "1px solid #EDD9C6", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
-        >
-          <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#2D1A0E", marginBottom: "16px" }}>Quick Actions</h3>
-          <div className="flex flex-col gap-3">
+      <div className="rounded-2xl p-5 sm:p-6" style={cardStyle}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-semibold" style={{ color: "#2d241d" }}>Needs your attention</h3>
+            <p className="mt-1 text-sm" style={{ color: "#82766a" }}>
+              Review listing details and account access.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={onMonitorVendors}
+            className="flex items-center justify-between gap-3 rounded-xl p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm"
+            style={{
+              background: incompleteVendors.length ? "#fff9ef" : "#f5faf6",
+              border: "1px solid #e9e5dd",
+              cursor: "pointer",
+            }}
+          >
+            <span className="flex items-center gap-2">
+              {incompleteVendors.length
+                ? <AlertTriangle size={17} color="#c47a17" />
+                : <CheckCircle size={17} color="#22845b" />}
+              <span className="text-sm font-medium" style={{ color: "#433a31" }}>
+                Listings missing details
+              </span>
+            </span>
+            <strong className="text-lg font-semibold" style={{ color: incompleteVendors.length ? "#b66b12" : "#22845b" }}>
+              {incompleteVendors.length}
+            </strong>
+          </button>
+          <button
+            type="button"
+            onClick={onManageUsers}
+            className="flex items-center justify-between gap-3 rounded-xl p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm"
+            style={{
+              background: disabledAccounts ? "#fff9ef" : "#f5faf6",
+              border: "1px solid #e9e5dd",
+              cursor: "pointer",
+            }}
+          >
+            <span className="flex items-center gap-2">
+              {disabledAccounts
+                ? <AlertTriangle size={17} color="#c47a17" />
+                : <CheckCircle size={17} color="#22845b" />}
+              <span className="text-sm font-medium" style={{ color: "#433a31" }}>
+                Disabled accounts
+              </span>
+            </span>
+            <strong className="text-lg font-semibold" style={{ color: disabledAccounts ? "#b66b12" : "#22845b" }}>
+              {disabledAccounts}
+            </strong>
+          </button>
+        </div>
+      </div>
+
+      <DashboardCharts vendors={vendors} period={period} onPeriodChange={setPeriod} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-2xl p-5 sm:p-6 lg:col-span-2" style={cardStyle}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-semibold" style={{ color: "#2d241d" }}>Recent activity</h3>
+              <p className="mt-1 text-xs" style={{ color: "#82766a" }}>Latest accounts and listings</p>
+            </div>
+          </div>
+          {recentActivity.length ? (
+            <div className="flex flex-col">
+              {recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center gap-3 py-3" style={{ borderTop: "1px solid #f0ede7" }}>
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: "#fff0e8", color: "#d95316" }}>
+                    {activity.icon}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium" style={{ color: "#433a31" }}>{activity.title}</p>
+                    <p className="mt-0.5 text-xs" style={{ color: "#82766a" }}>{activity.detail}</p>
+                  </div>
+                  <time className="text-xs" style={{ color: "#948779", whiteSpace: "nowrap" }}>
+                    {formatActivityTime(activity.createdAt)}
+                  </time>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-3 text-sm" style={{ color: "#82766a" }}>
+              No recent records with a creation date are available.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl p-5 sm:p-6" style={cardStyle}>
+          <h3 className="text-base font-semibold" style={{ color: "#2d241d" }}>Quick actions</h3>
+          <p className="mt-1 text-xs" style={{ color: "#82766a" }}>Jump to a workspace</p>
+          <div className="mt-5 flex flex-col gap-2.5">
             <button
+              type="button"
               onClick={onMonitorVendors}
-              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl active:opacity-80 transition-all"
-              style={{ background: "#F05A1A", border: "none", cursor: "pointer" }}
+              className="flex w-full items-center gap-2.5 rounded-xl px-4 py-3 text-left transition hover:brightness-95 active:scale-[0.99]"
+              style={{ background: "#d95316", border: "none", cursor: "pointer" }}
             >
-              <Store size={18} color="#fff" />
-              <span style={{ color: "#fff", fontSize: "14px", fontWeight: 600 }}>Monitor Vendors</span>
+              <Store size={16} color="#fff" />
+              <span className="text-sm font-semibold" style={{ color: "#fff" }}>Manage vendors</span>
+            </button>
+            <button
+              type="button"
+              onClick={onManageUsers}
+              className="flex w-full items-center gap-2.5 rounded-xl px-4 py-3 text-left transition hover:bg-[#faf8f4] active:scale-[0.99]"
+              style={{ background: "#fff", border: "1px solid #e9e5dd", cursor: "pointer" }}
+            >
+              <Users size={16} color="#d95316" />
+              <span className="text-sm font-semibold" style={{ color: "#433a31" }}>Manage users</span>
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Info */}
-        <div
-          className="rounded-2xl p-6 col-span-2"
-          style={{ background: "#fff", border: "1px solid #EDD9C6", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
-        >
-          <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#2D1A0E", marginBottom: "16px" }}>System Status</h3>
+      <div className="rounded-2xl p-5 sm:p-6" style={cardStyle}>
+        <div className="flex items-start gap-3">
           <div
-            className="flex items-start gap-4 p-4 rounded-xl"
-            style={{ background: "#EAF7EE", border: "1px solid #27AE6020" }}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+            style={{ background: systemStatus === "connected" ? "#eaf6ef" : systemStatus === "error" ? "#fff0ed" : "#f4efe7" }}
           >
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-              style={{ background: "#27AE6020" }}
-            >
-              <Store size={20} color="#27AE60" />
-            </div>
-            <div className="flex-1">
-              <p style={{ fontSize: "15px", fontWeight: 700, color: "#2D1A0E", marginBottom: "4px" }}>
-                All systems operational
-              </p>
-              <p style={{ fontSize: "13px", color: "#7A5C2E", lineHeight: "1.6" }}>
-                The backend is connected successfully to Firebase. Database listeners are active and syncing data in real-time.
-              </p>
-            </div>
+            {systemStatus === "connected"
+              ? <CheckCircle size={18} color="#22845b" />
+              : systemStatus === "error"
+                ? <AlertTriangle size={18} color="#c34b44" />
+                : <Clock3 size={18} color="#876d4d" />}
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: "#2d241d" }}>System status</h3>
+            <p className="mt-0.5 text-sm font-medium" style={{ color: systemStatus === "error" ? "#c34b44" : "#433a31" }}>
+              {statusText}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: "#82766a" }}>
+              Vendors: {vendorStatus} · Users: {userStatus}
+              {lastSynced ? ` · Last data received ${formatActivityTime(lastSynced)}` : ""}
+            </p>
           </div>
         </div>
       </div>
