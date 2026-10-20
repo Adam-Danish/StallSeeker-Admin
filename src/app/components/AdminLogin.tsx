@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { LockKeyhole, Store } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import { auth } from "../../firebase";
 
 function getSignInErrorMessage(error: unknown): string {
@@ -48,9 +48,12 @@ export function AdminLogin() {
     <main className="flex min-h-screen items-center justify-center p-4" style={{ background: "#f8f7f3" }}>
       <section className="w-full max-w-md rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
         <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: "#d95316", boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}>
-            <Store size={20} color="#fff" />
-          </span>
+          <img
+            src="/app_logo.png"
+            alt="StallSeeker logo"
+            className="h-11 w-11 flex-shrink-0 rounded-xl object-cover"
+            style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
+          />
           <div>
             <p className="font-semibold" style={{ color: "#2d241d" }}>StallSeeker</p>
             <p className="text-xs" style={{ color: "#a17b58" }}>Administrator sign-in</p>

@@ -715,9 +715,12 @@ function AdminDashboardApp() {
       {/* Sidebar */}
       <aside className="flex w-[68px] flex-shrink-0 flex-col sm:w-[208px] lg:w-[240px]" style={{ background: "#fff", borderRight: "1px solid #e9e5dd", height: "100%" }}>
         <div className="flex h-[77px] min-h-[77px] items-center justify-start gap-[9px] border-b px-[14px]" style={{ borderColor: "#e9e5dd" }}>
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: "#d95316", boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}>
-            <Store size={16} color="#fff" />
-          </div>
+          <img
+            src="/app_logo.png"
+            alt="StallSeeker logo"
+            className="h-9 w-9 flex-shrink-0 rounded-xl object-cover"
+            style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
+          />
           <div className="hidden h-[30px] min-w-0 flex-col justify-center sm:flex">
             <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "#2d241d", lineHeight: "18px" }}>StallSeeker</p>
             <p style={{ margin: 0, fontSize: "10px", color: "#a17b58", fontWeight: 500, lineHeight: "12px" }}>Admin Panel</p>
@@ -893,7 +896,13 @@ export default function App() {
 
   if (authGate === "loading" || authGate === "checking-admin") {
     return (
-      <main className="flex min-h-screen items-center justify-center" style={{ background: "#f8f7f3", color: "#82766a" }}>
+      <main className="flex min-h-screen flex-col items-center justify-center gap-3" style={{ background: "#f8f7f3", color: "#82766a" }}>
+        <img
+          src="/app_logo.png"
+          alt="StallSeeker logo"
+          className="h-12 w-12 rounded-xl object-cover"
+          style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
+        />
         <p className="text-sm">Checking administrator access…</p>
       </main>
     );
@@ -914,6 +923,18 @@ export default function App() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4" style={{ background: "#f8f7f3" }}>
       <section className="w-full max-w-lg rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
+        <div className="mb-5 flex items-center gap-3">
+          <img
+            src="/app_logo.png"
+            alt="StallSeeker logo"
+            className="h-11 w-11 flex-shrink-0 rounded-xl object-cover"
+            style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
+          />
+          <div>
+            <p className="font-semibold" style={{ color: "#2d241d" }}>StallSeeker</p>
+            <p className="text-xs" style={{ color: "#a17b58" }}>Admin Panel</p>
+          </div>
+        </div>
         <h1 className="text-xl font-semibold" style={{ color: "#2d241d" }}>
           {authGate === "not-admin" ? "Administrator access required" : "Could not verify access"}
         </h1>
