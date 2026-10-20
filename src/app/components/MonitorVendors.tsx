@@ -12,14 +12,24 @@ interface Props {
   vendors?: Vendor[];
   onEditListing?: (vendor: Vendor) => void;
   onDeleteListing?: (id: string) => Promise<void>;
+  previewMode?: boolean;
 }
 
-export function MonitorVendors({ onBack, onVendorDetail, vendors: initialVendors, onEditListing, onDeleteListing }: Props) {
+export function MonitorVendors({
+  onBack,
+  onVendorDetail,
+  vendors: initialVendors,
+  onEditListing,
+  onDeleteListing,
+  previewMode = false,
+}: Props) {
   const [vendors, setVendors] = useState<Vendor[]>(initialVendors || []);
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    if (previewMode) return;
+
     const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
       const v = snapshot.docs.map((doc) => {
         const data = doc.data();
@@ -47,7 +57,7 @@ export function MonitorVendors({ onBack, onVendorDetail, vendors: initialVendors
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [previewMode]);
 
   const filtered = vendors.filter((v) => {
     const matchFilter =
@@ -69,7 +79,9 @@ export function MonitorVendors({ onBack, onVendorDetail, vendors: initialVendors
       {/* Page header */}
       <div className="mb-6">
         <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#2D1A0E" }}>Monitor Vendors</h2>
-        <p style={{ fontSize: "13px", color: "#9B7B5B", marginTop: "2px" }}>Track vendor activity and stall status</p>
+        <p style={{ fontSize: "13px", color: "#9B7B5B", marginTop: "2px" }}>
+          {previewMode ? "Vendor records are unavailable in local preview mode" : "Track vendor activity and stall status"}
+        </p>
       </div>
 
       {/* Stats row */}

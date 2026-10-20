@@ -10,11 +10,13 @@ import {
 } from "lucide-react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
+import { getRecordCreatedAt } from "../dateUtils";
 import { DashboardCharts, type DashboardPeriod, type DashboardVendor } from "./DashboardCharts";
 
 interface Props {
   onMonitorVendors: () => void;
   onManageUsers: () => void;
+  previewMode?: boolean;
 }
 
 interface DashboardUser {
@@ -26,25 +28,6 @@ interface DashboardUser {
 }
 
 type ListenerStatus = "connecting" | "connected" | "error";
-
-function toDate(value: unknown): Date | null {
-  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
-
-  if (typeof value === "object" && value !== null && "toDate" in value) {
-    const toDateMethod = value.toDate;
-    if (typeof toDateMethod === "function") {
-      const date = toDateMethod.call(value);
-      if (date instanceof Date && Number.isFinite(date.getTime())) return date;
-    }
-  }
-
-  if (typeof value === "string" || typeof value === "number") {
-    const date = new Date(value);
-    if (Number.isFinite(date.getTime())) return date;
-  }
-
-  return null;
-}
 
 function formatActivityTime(date: Date): string {
   return date.toLocaleString([], {
@@ -61,7 +44,7 @@ const cardStyle = {
   boxShadow: "0 8px 24px rgba(45, 26, 14, 0.045)",
 };
 
-export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
+export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = false }: Props) {
   const [vendors, setVendors] = useState<DashboardVendor[]>([]);
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [vendorStatus, setVendorStatus] = useState<ListenerStatus>("connecting");
@@ -70,6 +53,8 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
   const [period, setPeriod] = useState<DashboardPeriod>("7d");
 
   useEffect(() => {
+    if (previewMode) return;
+
     const updateLastSynced = () => setLastSynced(new Date());
     const unsubscribeVendors = onSnapshot(
       collection(db, "vendors"),
@@ -84,7 +69,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
               openingHours: String(data.openingHours ?? data.hours ?? "").trim(),
               isOpen: data.isOpen === true,
               isAccountDisabled: data.isAccountDisabled === true,
-              createdAt: toDate(data.createdAt),
+              createdAt: getRecordCreatedAt(data),
             };
           })
         );
@@ -108,7 +93,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
               name: String(data.fullName ?? data.name ?? data.displayName ?? data.username ?? "User"),
               role: String(data.role ?? data.userRole ?? data.type ?? "customer").toLowerCase(),
               isAccountDisabled: data.isAccountDisabled === true,
-              createdAt: toDate(data.createdAt),
+              createdAt: getRecordCreatedAt(data),
             };
           })
         );
@@ -125,7 +110,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
       unsubscribeVendors();
       unsubscribeUsers();
     };
-  }, []);
+  }, [previewMode]);
 
   const incompleteVendors = useMemo(
     () => vendors.filter((vendor) => !vendor.name || !vendor.category || !vendor.openingHours),
@@ -167,8 +152,9 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
       : vendorStatus === "connected" && userStatus === "connected"
         ? "connected"
         : "connecting";
-  const statusText =
-    systemStatus === "connected"
+  const statusText = previewMode
+    ? "Local preview — live data disabled"
+    : systemStatus === "connected"
       ? "Live data connected"
       : systemStatus === "error"
         ? "Some data could not be loaded"
@@ -368,8 +354,9 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
               {statusText}
             </p>
             <p className="mt-1 text-xs leading-relaxed" style={{ color: "#82766a" }}>
-              Vendors: {vendorStatus} · Users: {userStatus}
-              {lastSynced ? ` · Last data received ${formatActivityTime(lastSynced)}` : ""}
+              {previewMode
+                ? "Firebase data is not loaded in local preview mode."
+                : <>Vendors: {vendorStatus} · Users: {userStatus}{lastSynced ? ` · Last data received ${formatActivityTime(lastSynced)}` : ""}</>}
             </p>
           </div>
         </div>

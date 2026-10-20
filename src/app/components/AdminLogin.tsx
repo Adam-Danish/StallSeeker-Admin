@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { LockKeyhole } from "lucide-react";
+import { LockKeyhole, Store } from "lucide-react";
 import { auth } from "../../firebase";
 
 function getSignInErrorMessage(error: unknown): string {
@@ -24,7 +24,7 @@ function getSignInErrorMessage(error: unknown): string {
   return "Sign-in failed. Check your credentials and try again.";
 }
 
-export function AdminLogin() {
+export function AdminLogin({ onPreviewLogin }: { onPreviewLogin?: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +35,14 @@ export function AdminLogin() {
     setError(null);
     setSubmitting(true);
     try {
+      if (
+        import.meta.env.DEV &&
+        email.trim().toLowerCase() === "admin@gmail.com" &&
+        password === "123456"
+      ) {
+        onPreviewLogin?.();
+        return;
+      }
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (signInError: unknown) {
       console.error("Admin sign-in failed:", signInError);
@@ -48,12 +56,9 @@ export function AdminLogin() {
     <main className="flex min-h-screen items-center justify-center p-4" style={{ background: "#f8f7f3" }}>
       <section className="w-full max-w-md rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
         <div className="mb-6 flex items-center gap-3">
-          <img
-            src="/app_logo.png"
-            alt="StallSeeker logo"
-            className="h-11 w-11 flex-shrink-0 rounded-xl object-cover"
-            style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
-          />
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: "#d95316", boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}>
+            <Store size={20} color="#fff" />
+          </span>
           <div>
             <p className="font-semibold" style={{ color: "#2d241d" }}>StallSeeker</p>
             <p className="text-xs" style={{ color: "#a17b58" }}>Administrator sign-in</p>
@@ -65,6 +70,11 @@ export function AdminLogin() {
           <p className="mt-1 text-sm" style={{ color: "#82766a" }}>
             Sign in with your Firebase admin account to continue.
           </p>
+          {import.meta.env.DEV && (
+            <p className="mt-2 text-xs" style={{ color: "#82766a" }}>
+              Local UI preview: admin@gmail.com / 123456. This does not sign in to Firebase or access live data.
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

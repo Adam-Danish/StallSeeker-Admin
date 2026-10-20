@@ -119,7 +119,7 @@ export const DashboardCharts: React.FC<Props> = ({
         signups: 0,
       }));
       activityVendors.forEach((vendor) => {
-        if (!vendor.createdAt || vendor.createdAt < start) return;
+        if (!vendor.createdAt || vendor.createdAt < start || vendor.createdAt > now) return;
         const index = Math.min(Math.floor(vendor.createdAt.getHours() / 4), 5);
         buckets[index].signups++;
       });
@@ -127,21 +127,35 @@ export const DashboardCharts: React.FC<Props> = ({
     }
 
     if (period === 'all') {
-      start.setDate(1);
-      start.setMonth(start.getMonth() - 11);
-      const months = Array.from({ length: 12 }, (_, index) =>
-        new Date(start.getFullYear(), start.getMonth() + index, 1)
+      const datedVendors = activityVendors.filter(
+        (vendor) => vendor.createdAt !== null && vendor.createdAt <= now
+      );
+      const earliestDate = datedVendors.reduce<Date | null>((earliest, vendor) => {
+        if (!vendor.createdAt) return earliest;
+        return !earliest || vendor.createdAt < earliest ? vendor.createdAt : earliest;
+      }, null);
+      const firstMonth = earliestDate
+        ? new Date(earliestDate.getFullYear(), earliestDate.getMonth(), 1)
+        : new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthCount =
+        (lastMonth.getFullYear() - firstMonth.getFullYear()) * 12 +
+        lastMonth.getMonth() - firstMonth.getMonth() + 1;
+      const months = Array.from({ length: monthCount }, (_, index) =>
+        new Date(firstMonth.getFullYear(), firstMonth.getMonth() + index, 1)
       );
       const counts = new Map(months.map((date) => [`${date.getFullYear()}-${date.getMonth()}`, 0]));
 
-      activityVendors.forEach((vendor) => {
-        if (!vendor.createdAt || vendor.createdAt < start || vendor.createdAt > now) return;
+      datedVendors.forEach((vendor) => {
+        if (!vendor.createdAt) return;
         const key = `${vendor.createdAt.getFullYear()}-${vendor.createdAt.getMonth()}`;
         if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
       });
 
       return months.map((date) => ({
-        label: date.toLocaleDateString([], { month: 'short' }),
+        label: monthCount > 12
+          ? date.toLocaleDateString([], { month: 'short', year: '2-digit' })
+          : date.toLocaleDateString([], { month: 'short' }),
         signups: counts.get(`${date.getFullYear()}-${date.getMonth()}`) ?? 0,
       }));
     }
@@ -156,7 +170,7 @@ export const DashboardCharts: React.FC<Props> = ({
     const counts = new Map(dates.map((date) => [date.toDateString(), 0]));
 
     activityVendors.forEach((vendor) => {
-      if (!vendor.createdAt || vendor.createdAt < start) return;
+      if (!vendor.createdAt || vendor.createdAt < start || vendor.createdAt > now) return;
       const key = vendor.createdAt.toDateString();
       if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
     });
@@ -183,7 +197,9 @@ export const DashboardCharts: React.FC<Props> = ({
             <p style={{ margin: '4px 0 0', color: '#82766a', fontSize: isLarge ? '14px' : '12px' }}>
               {activityData.some((point) => point.signups > 0)
                 ? 'Listing activity over time'
-                : 'No dated listings in this period yet'}
+                : vendors.some((vendor) => vendor.createdAt)
+                  ? 'No new listings in this period'
+                  : 'No listing dates available for this period'}
             </p>
           </div>
           {showPeriodControl && <div style={toggleGroupStyle}>
@@ -220,7 +236,13 @@ export const DashboardCharts: React.FC<Props> = ({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0ede7" />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#948779', fontSize: isLarge ? 13 : 11 }} interval={period === '30d' ? 4 : 0} />
+              <XAxis
+                dataKey="label"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#948779', fontSize: isLarge ? 13 : 11 }}
+                interval={period === '30d' ? 4 : period === 'all' ? Math.max(0, Math.ceil(activityData.length / 12) - 1) : 0}
+              />
               <YAxis axisLine={false} tickLine={false} tick={{ fill: '#948779', fontSize: isLarge ? 13 : 11 }} allowDecimals={false} width={isLarge ? 38 : 28} />
               <Tooltip
                 contentStyle={{ border: '1px solid #e9e5dd', borderRadius: '12px', boxShadow: '0 8px 24px rgba(45, 26, 14, 0.10)' }}

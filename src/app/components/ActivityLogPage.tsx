@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { History, RefreshCw, Search, Store, UserRound } from "lucide-react";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { ActivityServiceError, getAdminActivity, type ActivityEntry } from "../adminActivityApi";
 
 export type ActivityAction =
   | "vendor.updated"
@@ -17,15 +17,8 @@ export interface ActivityEvent {
   summary: string;
 }
 
-interface ActivityEntry extends ActivityEvent {
-  id: string;
-  actorName: string;
-  actorEmail: string;
-  createdAt: number | null;
-}
-
-interface ActivityResponse {
-  entries: ActivityEntry[];
+interface ActivityLogPageProps {
+  previewMode?: boolean;
 }
 
 const ACTION_LABELS: Record<ActivityAction, string> = {
@@ -56,7 +49,27 @@ function formatTimestamp(timestamp: number | null): string {
   });
 }
 
-export function ActivityLogPage() {
+function getActivityErrorMessage(error: unknown): string {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String(error.code)
+      : "";
+
+  if (code === "unauthenticated") {
+    return "Your Firebase session is missing or expired. Sign in again, then reopen Activity Log.";
+  }
+  if (code === "permission-denied") {
+    return "Your account is signed in but does not have the admin role. Check users/{your UID} in Firestore.";
+  }
+  if (code === "http-404") {
+    return "The activity log service is not deployed. Deploy the adminActivity Cloud Function from the functions folder.";
+  }
+
+  if (error instanceof ActivityServiceError) return error.message;
+  return "Activity could not be loaded. Check the browser console and confirm the activity log Cloud Functions are deployed.";
+}
+
+export function ActivityLogPage({ previewMode = false }: ActivityLogPageProps) {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<"all" | ActivityAction>("all");
@@ -65,22 +78,19 @@ export function ActivityLogPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (previewMode) return;
+
     let active = true;
     setLoading(true);
     setError(null);
 
-    const getActivity = httpsCallable<{ limit: number }, ActivityResponse>(
-      getFunctions(undefined, "us-central1"),
-      "getAdminActivity"
-    );
-
-    getActivity({ limit: 100 })
-      .then(({ data }) => {
-        if (active) setEntries(data.entries);
+    getAdminActivity(100)
+      .then((activityEntries) => {
+        if (active) setEntries(activityEntries);
       })
       .catch((loadError: unknown) => {
         console.error("Error loading admin activity:", loadError);
-        if (active) setError("Activity could not be loaded. Check your admin access and Cloud Functions deployment.");
+        if (active) setError(getActivityErrorMessage(loadError));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -89,7 +99,7 @@ export function ActivityLogPage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [previewMode, reloadKey]);
 
   const filteredEntries = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -105,6 +115,25 @@ export function ActivityLogPage() {
       ].some((value) => value.toLowerCase().includes(normalizedSearch));
     });
   }, [actionFilter, entries, search]);
+
+  if (previewMode) {
+    return (
+      <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-10">
+        <section className="rounded-2xl p-6 sm:p-8" style={cardStyle}>
+          <div className="flex items-center gap-3">
+            <History size={20} color="#d95316" />
+            <h2 className="text-2xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Activity log</h2>
+          </div>
+          <p className="mt-3 text-sm" style={{ color: "#655848" }}>
+            Activity history requires a Firebase administrator session. Sign out of preview and sign in with your real Firebase admin account to load records.
+          </p>
+          <p className="mt-2 text-xs" style={{ color: "#82766a" }}>
+            The local preview login does not authenticate with Firebase, and preview actions are not written to the activity log.
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-10">
@@ -221,7 +250,7 @@ export function ActivityLogPage() {
               {entries.length ? "No activity matches these filters" : "No activity recorded yet"}
             </p>
             <p className="mt-1 max-w-md text-sm" style={{ color: "#82766a" }}>
-              Successful vendor and account changes will appear here after activity logging is deployed.
+              No past actions are backfilled. Successful vendor and account changes made after activity logging was enabled will appear here.
             </p>
           </div>
         )}

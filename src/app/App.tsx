@@ -16,11 +16,13 @@ import {
 } from "lucide-react";
 import { collection, onSnapshot, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { auth, db } from "../firebase";
+import { getRecordCreatedAt } from "./dateUtils";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { ActivityLogPage, type ActivityEvent } from "./components/ActivityLogPage";
+import { recordAdminActivity } from "./adminActivityApi";
+import { performUserManagementAction, type UserProfileCollection } from "./userManagementApi";
 import { AdminLogin } from "./components/AdminLogin";
 import type { DashboardVendor } from "./components/DashboardCharts";
 import { MonitorVendors } from "./components/MonitorVendors";
@@ -40,21 +42,20 @@ interface UserAccount {
 type Screen = "dashboard" | "analytics" | "activity-log" | "vendors" | "users" | "vendor-detail" | "action-confirm";
 type NavTab = "dashboard" | "analytics" | "activity-log" | "vendors" | "users";
 
-function toDate(value: unknown): Date | null {
-  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
-
-  if (typeof value === "object" && value !== null && "toDate" in value) {
-    const toDateMethod = value.toDate;
-    if (typeof toDateMethod === "function") {
-      const date = toDateMethod.call(value);
-      if (date instanceof Date && Number.isFinite(date.getTime())) return date;
-    }
+function firstNonEmptyString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
   }
-
-  return null;
+  return "No Email Provided";
 }
 
-function AdminDashboardApp() {
+function AdminDashboardApp({
+  previewMode = false,
+  onPreviewSignOut,
+}: {
+  previewMode?: boolean;
+  onPreviewSignOut?: () => void;
+}) {
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [darkMode, setDarkMode] = useState(
@@ -69,6 +70,11 @@ function AdminDashboardApp() {
   }, [darkMode]);
 
   const handleSignOut = async () => {
+    if (previewMode) {
+      onPreviewSignOut?.();
+      return;
+    }
+
     try {
       await signOut(auth);
     } catch (error) {
@@ -82,6 +88,8 @@ function AdminDashboardApp() {
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
   const [emailLookupError, setEmailLookupError] = useState<string | null>(null);
   const [activityNotice, setActivityNotice] = useState<string | null>(null);
+  const [userActionError, setUserActionError] = useState<string | null>(null);
+  const [activeUserActionId, setActiveUserActionId] = useState<string | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [pendingAction, setPendingAction] = useState<AdminAction>("suspend");
 
@@ -96,6 +104,8 @@ function AdminDashboardApp() {
 
   // 1. Fetch Vendors Real-time
   useEffect(() => {
+    if (previewMode) return;
+
     const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
       const docs: Vendor[] = snapshot.docs.map((d) => {
         const data = d.data();
@@ -118,16 +128,18 @@ function AdminDashboardApp() {
           lng: Number.isFinite(longitude) ? longitude : 0,
           imageUrl: data.imageUrl || "",
           isAccountDisabled: Boolean(data.isAccountDisabled),
-          createdAt: toDate(data.createdAt),
+          createdAt: getRecordCreatedAt(data),
         } as Vendor & { isAccountDisabled?: boolean };
       });
       setVendorsList(docs);
     });
     return () => unsubscribe();
-  }, []);
+  }, [previewMode]);
 
   // 2. Fetch both "users" AND "vendors" collections and merge/cross-reference email
   useEffect(() => {
+    if (previewMode) return;
+
     let customerAccounts: UserAccount[] = [];
     let vendorAccounts: UserAccount[] = [];
     const authEmails = new Map<string, string>();
@@ -254,9 +266,17 @@ function AdminDashboardApp() {
             name: String(
               data.name ?? data.fullName ?? data.displayName ?? data.username ?? data.userName ?? "Customer User"
             ),
-            email: String(
-              data.email ?? data.eMail ?? data.userEmail ?? data.contactEmail ?? data.mail ?? "No Email Provided"
-            ).trim() || "No Email Provided",
+            email: firstNonEmptyString(
+              data.email,
+              data.eMail,
+              data.userEmail,
+              data.user_email,
+              data.emailAddress,
+              data.email_address,
+              data.contactEmail,
+              data.contact_email,
+              data.mail
+            ),
             role: (roleStr === "vendor" || roleStr === "admin") ? (roleStr as 'vendor' | 'admin') : "customer",
             isAccountDisabled: Boolean(data.isAccountDisabled),
           };
@@ -279,18 +299,21 @@ function AdminDashboardApp() {
             name: String(
               data.name ?? data.stallName ?? data.fullName ?? data.ownerName ?? "Vendor Account"
             ),
-            email: String(
-              data.email ??
-              data.contactEmail ??
-              data.vendorEmail ??
-              data.ownerEmail ??
-              data.userEmail ??
-              data.owner_email ??
-              data.vendor_email ??
-              data.contact ??
-              data.eMail ??
-              "No Email Provided"
-            ).trim() || "No Email Provided",
+            email: firstNonEmptyString(
+              data.email,
+              data.eMail,
+              data.emailAddress,
+              data.email_address,
+              data.contactEmail,
+              data.contact_email,
+              data.vendorEmail,
+              data.vendor_email,
+              data.ownerEmail,
+              data.owner_email,
+              data.userEmail,
+              data.user_email,
+              data.contact
+            ),
             role: (roleStr === "customer" || roleStr === "admin") ? (roleStr as 'customer' | 'admin') : "vendor",
             isAccountDisabled: Boolean(data.isAccountDisabled),
           };
@@ -305,7 +328,7 @@ function AdminDashboardApp() {
       unsubUsers();
       unsubVendors();
     };
-  }, []);
+  }, [previewMode]);
 
   const navigate = (s: Screen, tab?: NavTab) => {
     setScreen(s);
@@ -322,13 +345,8 @@ function AdminDashboardApp() {
   };
 
   const recordActivity = async (event: ActivityEvent) => {
-    const logActivity = httpsCallable<ActivityEvent, { success: boolean }>(
-      getFunctions(undefined, "us-central1"),
-      "recordAdminActivity"
-    );
     try {
-      const { data } = await logActivity(event);
-      if (!data.success) throw new Error("The activity service did not confirm the log entry.");
+      await recordAdminActivity(event);
       setActivityNotice(null);
     } catch (error) {
       console.error("The admin change succeeded, but its activity could not be recorded:", error);
@@ -384,6 +402,9 @@ function AdminDashboardApp() {
     if (window.confirm("Are you sure you want to permanently delete this listing?")) {
       const vendor = vendorsList.find((item) => (item.id ?? item.vendorId) === id);
       await deleteDoc(doc(db, "vendors", id));
+      setVendorsList((currentVendors) =>
+        currentVendors.filter((item) => (item.id ?? item.vendorId) !== id)
+      );
       await recordActivity({
         action: "vendor.deleted",
         entityType: "vendor",
@@ -396,14 +417,17 @@ function AdminDashboardApp() {
     }
   };
 
-  // Toggle Disable Account (Soft-delete flag preventing client login)
+  // Update Firebase Authentication login access and mirror the status on the profile.
   const handleToggleDisableUser = async (id: string, role?: string, currentStatus?: boolean) => {
+    if (previewMode || activeUserActionId) return;
     const actionName = currentStatus ? "re-enable" : "disable";
-    if (window.confirm(`Are you sure you want to ${actionName} access for this account?`)) {
-      const collectionName = role === "vendor" ? "vendors" : "users";
-      await updateDoc(doc(db, collectionName, id), {
-        isAccountDisabled: !currentStatus
-      });
+    if (!window.confirm(`Are you sure you want to ${actionName} Firebase login access for this account?`)) return;
+
+    const collectionName: UserProfileCollection = role === "vendor" ? "vendors" : "users";
+    setActiveUserActionId(id);
+    setUserActionError(null);
+    try {
+      await performUserManagementAction(currentStatus ? "enable" : "disable", collectionName, id);
       const account = usersList.find((user) => user.id === id);
       await recordActivity({
         action: currentStatus ? "account.enabled" : "account.disabled",
@@ -412,22 +436,38 @@ function AdminDashboardApp() {
         entityName: account?.name || "Account",
         summary: `${currentStatus ? "Re-enabled" : "Disabled"} ${role ?? "user"} account access.`,
       });
+    } catch (error) {
+      console.error("Unable to change Firebase login access:", error);
+      setUserActionError(error instanceof Error ? error.message : "Could not change this account's login access.");
+    } finally {
+      setActiveUserActionId(null);
     }
   };
 
-  // User Management Hard Delete Handler
+  // Delete the selected profile and its matching Firebase Authentication account.
   const handleDeleteUser = async (id: string, role?: string) => {
-    if (window.confirm("Are you sure you want to permanently delete this document from Firestore?")) {
-      const collectionName = role === "vendor" ? "vendors" : "users";
-      await deleteDoc(doc(db, collectionName, id));
+    if (previewMode || activeUserActionId) return;
+    if (!window.confirm("Permanently delete this account from Firebase Authentication and its selected Firestore profile? This cannot be undone.")) return;
+
+    const collectionName: UserProfileCollection = role === "vendor" ? "vendors" : "users";
+    setActiveUserActionId(id);
+    setUserActionError(null);
+    try {
+      await performUserManagementAction("delete", collectionName, id);
       const account = usersList.find((user) => user.id === id);
+      setUsersList((currentUsers) => currentUsers.filter((user) => user.id !== id));
       await recordActivity({
         action: "account.deleted",
         entityType: role === "vendor" ? "vendor" : "user",
         entityId: id,
         entityName: account?.name || "Account",
-        summary: `Deleted ${role ?? "user"} account document.`,
+        summary: `Deleted ${role ?? "user"} Firebase Authentication account and Firestore profile.`,
       });
+    } catch (error) {
+      console.error("Unable to delete Firebase account:", error);
+      setUserActionError(error instanceof Error ? error.message : "Could not delete this account.");
+    } finally {
+      setActiveUserActionId(null);
     }
   };
 
@@ -468,8 +508,9 @@ function AdminDashboardApp() {
             <AdminDashboard
               onMonitorVendors={() => navigate("vendors", "vendors")}
               onManageUsers={() => navigate("users", "users")}
+              previewMode={previewMode}
             />
-            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} />
+            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} previewMode={previewMode} />
           </div>
         );
 
@@ -485,7 +526,7 @@ function AdminDashboardApp() {
         );
 
       case "activity-log":
-        return <ActivityLogPage />;
+        return <ActivityLogPage previewMode={previewMode} />;
 
       case "vendors":
         return (
@@ -521,6 +562,7 @@ function AdminDashboardApp() {
               vendors={filteredVendors}
               onEditListing={(v: Vendor) => setEditingVendor(v)}
               onDeleteListing={handleDeleteListing}
+              previewMode={previewMode}
             />
           </div>
         );
@@ -594,9 +636,9 @@ function AdminDashboardApp() {
               </button>
             </div>
 
-            {emailLookupError && (
+            {(emailLookupError || userActionError) && (
               <p role="alert" style={{ margin: "0 0 12px", color: "#B42318", fontSize: "13px" }}>
-                {emailLookupError}
+                {userActionError || emailLookupError}
               </p>
             )}
 
@@ -645,15 +687,19 @@ function AdminDashboardApp() {
                           <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
                             <button
                               title={u.isAccountDisabled ? "Re-enable Account" : "Disable Login Access"}
+                              aria-label={u.isAccountDisabled ? `Re-enable login for ${u.name}` : `Disable login for ${u.name}`}
+                              disabled={previewMode || activeUserActionId !== null}
                               onClick={() => handleToggleDisableUser(u.id, u.role, u.isAccountDisabled)}
-                              style={{ background: "none", border: "none", cursor: "pointer" }}
+                              style={{ background: "none", border: "none", cursor: previewMode || activeUserActionId !== null ? "not-allowed" : "pointer", opacity: activeUserActionId === u.id ? 0.5 : 1 }}
                             >
-                              {u.isAccountDisabled ? <UserCheck size={16} color="#2E7D32" /> : <UserX size={16} color="#D97706" />}
+                              {activeUserActionId === u.id ? <span aria-label="Saving account change">…</span> : u.isAccountDisabled ? <UserCheck size={16} color="#2E7D32" /> : <UserX size={16} color="#D97706" />}
                             </button>
                             <button
-                              title="Delete Firestore Document"
+                              title="Delete Firebase account"
+                              aria-label={`Delete ${u.name}`}
+                              disabled={previewMode || activeUserActionId !== null}
                               onClick={() => handleDeleteUser(u.id, u.role)}
-                              style={{ background: "none", border: "none", cursor: "pointer" }}
+                              style={{ background: "none", border: "none", cursor: previewMode || activeUserActionId !== null ? "not-allowed" : "pointer", opacity: activeUserActionId === u.id ? 0.5 : 1 }}
                             >
                               <Trash2 size={16} color="#EF4444" />
                             </button>
@@ -715,12 +761,9 @@ function AdminDashboardApp() {
       {/* Sidebar */}
       <aside className="flex w-[68px] flex-shrink-0 flex-col sm:w-[208px] lg:w-[240px]" style={{ background: "#fff", borderRight: "1px solid #e9e5dd", height: "100%" }}>
         <div className="flex h-[77px] min-h-[77px] items-center justify-start gap-[9px] border-b px-[14px]" style={{ borderColor: "#e9e5dd" }}>
-          <img
-            src="/app_logo.png"
-            alt="StallSeeker logo"
-            className="h-9 w-9 flex-shrink-0 rounded-xl object-cover"
-            style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
-          />
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: "#d95316", boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}>
+            <Store size={16} color="#fff" />
+          </div>
           <div className="hidden h-[30px] min-w-0 flex-col justify-center sm:flex">
             <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "#2d241d", lineHeight: "18px" }}>StallSeeker</p>
             <p style={{ margin: 0, fontSize: "10px", color: "#a17b58", fontWeight: 500, lineHeight: "12px" }}>Admin Panel</p>
@@ -790,6 +833,11 @@ function AdminDashboardApp() {
         </header>
 
         <main className="flex-1 overflow-y-auto" style={{ background: "#f8f7f3" }}>
+          {previewMode && (
+            <p role="status" className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm sm:mx-6 lg:mx-8" style={{ color: "#785333", background: "#fbf3e8", border: "1px solid #e9d7b7" }}>
+              Local UI preview only. Firebase data, activity logs, and account changes are unavailable.
+            </p>
+          )}
           {signOutError && (
             <p role="alert" className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm sm:mx-6 lg:mx-8" style={{ color: "#8f3b32", background: "#fff0ed", border: "1px solid #f2d1cb" }}>
               {signOutError}
@@ -853,9 +901,9 @@ function AdminDashboardApp() {
   );
 }
 
-type AuthGateState = "loading" | "signed-out" | "checking-admin" | "admin" | "not-admin" | "error";
+type AuthGateState = "loading" | "signed-out" | "checking-admin" | "admin" | "preview" | "not-admin" | "error";
 
-export default function App() {
+function AuthenticatedAdminApp() {
   const [authGate, setAuthGate] = useState<AuthGateState>("loading");
   const [authGateError, setAuthGateError] = useState<string | null>(null);
 
@@ -866,6 +914,11 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       const currentVerification = ++verificationId;
       setAuthGateError(null);
+
+      if (import.meta.env.DEV && window.sessionStorage.getItem("stallseeker-admin-preview") === "true") {
+        setAuthGate("preview");
+        return;
+      }
 
       if (!user) {
         setAuthGate("signed-out");
@@ -896,20 +949,34 @@ export default function App() {
 
   if (authGate === "loading" || authGate === "checking-admin") {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-3" style={{ background: "#f8f7f3", color: "#82766a" }}>
-        <img
-          src="/app_logo.png"
-          alt="StallSeeker logo"
-          className="h-12 w-12 rounded-xl object-cover"
-          style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
-        />
+      <main className="flex min-h-screen items-center justify-center" style={{ background: "#f8f7f3", color: "#82766a" }}>
         <p className="text-sm">Checking administrator access…</p>
       </main>
     );
   }
 
-  if (authGate === "signed-out") return <AdminLogin />;
+  if (authGate === "signed-out") {
+    return (
+      <AdminLogin
+        onPreviewLogin={import.meta.env.DEV ? () => {
+          window.sessionStorage.setItem("stallseeker-admin-preview", "true");
+          setAuthGate("preview");
+        } : undefined}
+      />
+    );
+  }
   if (authGate === "admin") return <AdminDashboardApp />;
+  if (authGate === "preview") {
+    return (
+      <AdminDashboardApp
+        previewMode
+        onPreviewSignOut={() => {
+          window.sessionStorage.removeItem("stallseeker-admin-preview");
+          setAuthGate("signed-out");
+        }}
+      />
+    );
+  }
 
   const handleAccessSignOut = async () => {
     try {
@@ -923,18 +990,6 @@ export default function App() {
   return (
     <main className="flex min-h-screen items-center justify-center p-4" style={{ background: "#f8f7f3" }}>
       <section className="w-full max-w-lg rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
-        <div className="mb-5 flex items-center gap-3">
-          <img
-            src="/app_logo.png"
-            alt="StallSeeker logo"
-            className="h-11 w-11 flex-shrink-0 rounded-xl object-cover"
-            style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
-          />
-          <div>
-            <p className="font-semibold" style={{ color: "#2d241d" }}>StallSeeker</p>
-            <p className="text-xs" style={{ color: "#a17b58" }}>Admin Panel</p>
-          </div>
-        </div>
         <h1 className="text-xl font-semibold" style={{ color: "#2d241d" }}>
           {authGate === "not-admin" ? "Administrator access required" : "Could not verify access"}
         </h1>
@@ -952,4 +1007,8 @@ export default function App() {
       </section>
     </main>
   );
+}
+
+export default function App() {
+  return <AuthenticatedAdminApp />;
 }

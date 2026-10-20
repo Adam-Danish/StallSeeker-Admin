@@ -51,7 +51,9 @@ export function AnalyticsPage({
     ),
     [vendors, periodStart?.getTime(), now.getTime()]
   );
-  const datedListingsInPeriod = periodVendors.filter((vendor) => vendor.createdAt !== null).length;
+  const datedListingsInPeriod = periodVendors.filter(
+    (vendor) => vendor.createdAt !== null && vendor.createdAt <= now
+  ).length;
   const openVendors = vendors.filter((vendor) => vendor.isOpen).length;
   const offlineVendors = vendors.length - openVendors;
   const disabledAccounts =
