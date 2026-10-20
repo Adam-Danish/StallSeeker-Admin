@@ -7,5 +7,20 @@
       "firebase-debug.log",
       "firebase-debug.*"
     ]
+  },
+  "hosting": {
+    "site": "stallseeker-admin",
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   }
 }
