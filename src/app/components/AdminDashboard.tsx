@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle,
@@ -11,6 +11,7 @@ import {
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getRecordCreatedAt } from "../dateUtils";
+import { lookupAccountCreationDates } from "../userManagementApi";
 import { DashboardCharts, type DashboardPeriod, type DashboardVendor } from "./DashboardCharts";
 
 interface Props {
@@ -51,6 +52,9 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
   const [userStatus, setUserStatus] = useState<ListenerStatus>("connecting");
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [period, setPeriod] = useState<DashboardPeriod>("7d");
+  const [authCreatedAtByUid, setAuthCreatedAtByUid] = useState<Record<string, Date>>({});
+  const [registrationDateError, setRegistrationDateError] = useState<string | null>(null);
+  const attemptedDateLookups = useRef(new Set<string>());
 
   useEffect(() => {
     if (previewMode) return;
@@ -116,13 +120,70 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
     () => vendors.filter((vendor) => !vendor.name || !vendor.category || !vendor.openingHours),
     [vendors]
   );
+  const vendorAccountDates = useMemo(
+    () => new Map<string, Date>(
+      users
+        .filter((user) => user.role === "vendor" && user.createdAt)
+        .map((user) => [user.id, user.createdAt as Date])
+    ),
+    [users]
+  );
+
+  useEffect(() => {
+    if (previewMode) return;
+
+    const idsToLookUp = vendors
+      .filter((vendor) =>
+        !vendor.createdAt &&
+        !vendorAccountDates.has(vendor.id) &&
+        !authCreatedAtByUid[vendor.id] &&
+        !attemptedDateLookups.current.has(vendor.id)
+      )
+      .map((vendor) => vendor.id);
+    if (!idsToLookUp.length) return;
+
+    idsToLookUp.forEach((id) => attemptedDateLookups.current.add(id));
+
+    const loadCreationDates = async () => {
+      try {
+        const resolvedDates: Record<string, Date> = {};
+        for (let index = 0; index < idsToLookUp.length; index += 100) {
+          const dates = await lookupAccountCreationDates(idsToLookUp.slice(index, index + 100));
+          dates.forEach((date, uid) => {
+            resolvedDates[uid] = date;
+          });
+        }
+        setAuthCreatedAtByUid((current) => ({ ...current, ...resolvedDates }));
+        setRegistrationDateError(null);
+      } catch (error) {
+        console.error("Unable to load vendor registration dates from Firebase Authentication:", error);
+        setRegistrationDateError(
+          error instanceof Error ? error.message : "Vendor registration dates could not be loaded."
+        );
+      }
+    };
+
+    void loadCreationDates();
+  }, [authCreatedAtByUid, previewMode, vendorAccountDates, vendors]);
+
+  const vendorsWithRegistrationDates = useMemo(
+    () => vendors.map((vendor) => ({
+      ...vendor,
+      createdAt:
+        vendor.createdAt ??
+        vendorAccountDates.get(vendor.id) ??
+        authCreatedAtByUid[vendor.id] ??
+        null,
+    })),
+    [authCreatedAtByUid, vendorAccountDates, vendors]
+  );
   const disabledAccounts =
     vendors.filter((vendor) => vendor.isAccountDisabled).length +
     users.filter((user) => user.isAccountDisabled).length;
   const recentActivity = useMemo(
     () =>
       [
-        ...vendors
+        ...vendorsWithRegistrationDates
           .filter((vendor) => vendor.createdAt)
           .map((vendor) => ({
             id: `vendor-${vendor.id}`,
@@ -143,7 +204,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
       ]
         .sort((first, second) => second.createdAt.getTime() - first.createdAt.getTime())
         .slice(0, 6),
-    [users, vendors]
+    [users, vendorsWithRegistrationDates]
   );
 
   const systemStatus: ListenerStatus =
@@ -276,7 +337,13 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
         </div>
       </div>
 
-      <DashboardCharts vendors={vendors} period={period} onPeriodChange={setPeriod} />
+      <DashboardCharts
+        vendors={vendors}
+        activityVendors={vendorsWithRegistrationDates}
+        activityDateError={registrationDateError}
+        period={period}
+        onPeriodChange={setPeriod}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-2xl p-5 sm:p-6 lg:col-span-2" style={cardStyle}>

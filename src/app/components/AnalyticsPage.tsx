@@ -6,6 +6,7 @@ interface Props {
   vendors: DashboardVendor[];
   registeredUsers: number;
   disabledUserCount: number;
+  registrationDateError?: string | null;
   onManageVendors: () => void;
   onManageUsers: () => void;
 }
@@ -38,6 +39,7 @@ export function AnalyticsPage({
   vendors,
   registeredUsers,
   disabledUserCount,
+  registrationDateError = null,
   onManageVendors,
   onManageUsers,
 }: Props) {
@@ -131,6 +133,7 @@ export function AnalyticsPage({
       <DashboardCharts
         vendors={vendors}
         activityVendors={periodVendors}
+        activityDateError={registrationDateError}
         period={period}
         onPeriodChange={setPeriod}
         size="large"

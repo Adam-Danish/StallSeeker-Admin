@@ -46,6 +46,7 @@ export type DashboardPeriod = 'today' | '7d' | '30d' | 'all';
 interface Props {
   vendors: DashboardVendor[];
   activityVendors?: DashboardVendor[];
+  activityDateError?: string | null;
   period: DashboardPeriod;
   onPeriodChange: (period: DashboardPeriod) => void;
   size?: 'default' | 'large';
@@ -80,6 +81,7 @@ const chartButtonStyle = {
 export const DashboardCharts: React.FC<Props> = ({
   vendors,
   activityVendors = vendors,
+  activityDateError = null,
   period,
   onPeriodChange,
   size = 'default',
@@ -197,7 +199,9 @@ export const DashboardCharts: React.FC<Props> = ({
             <p style={{ margin: '4px 0 0', color: '#82766a', fontSize: isLarge ? '14px' : '12px' }}>
               {activityData.some((point) => point.signups > 0)
                 ? 'Listing activity over time'
-                : vendors.some((vendor) => vendor.createdAt)
+                : activityDateError
+                  ? `Registration dates unavailable: ${activityDateError}`
+                  : activityVendors.some((vendor) => vendor.createdAt)
                   ? 'No new listings in this period'
                   : 'No listing dates available for this period'}
             </p>

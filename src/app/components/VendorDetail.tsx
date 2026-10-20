@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Utensils, Plus, Trash2, ArrowLeft, Power } from 'lucide-react';
+import { Utensils, Plus, Trash2, ArrowLeft, Power, Star } from 'lucide-react';
 import type { Vendor } from './types';
 
 interface MenuItem {
   id: string;
   name: string;
   price: number;
+}
+
+interface StallReview {
+  id: string;
+  comment: string;
+  rating: number | null;
+  reviewerName: string;
+  createdAt: Date | null;
 }
 
 interface VendorDetailProps {
@@ -24,6 +32,8 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
   onReactivate,
 }) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [reviews, setReviews] = useState<StallReview[]>([]);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
 
@@ -47,6 +57,43 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       }));
       setMenuItems(items);
     });
+    return () => unsubscribe();
+  }, [vendorId]);
+
+  useEffect(() => {
+    if (!vendorId) return;
+
+    const reviewsRef = collection(db, 'stallReviews', vendorId, 'entries');
+    const unsubscribe = onSnapshot(
+      reviewsRef,
+      (snapshot) => {
+        const vendorReviews = snapshot.docs.map((reviewDoc): StallReview => {
+          const data = reviewDoc.data();
+          const rawRating = Number(data.rating);
+          const updatedAt = data.updatedAt;
+
+          return {
+            id: reviewDoc.id,
+            comment: String(data.text ?? ''),
+            rating: Number.isFinite(rawRating) && rawRating > 0 ? rawRating : null,
+            reviewerName: String(data.customerName ?? 'Customer'),
+            createdAt: updatedAt && typeof updatedAt.toDate === 'function'
+              ? updatedAt.toDate()
+              : null,
+          };
+        });
+        vendorReviews.sort(
+          (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0)
+        );
+        setReviews(vendorReviews);
+        setReviewError(null);
+      },
+      (error) => {
+        console.error('Unable to load vendor reviews:', error);
+        setReviewError('Reviews could not be loaded. Check your Firebase permissions and try again.');
+      }
+    );
+
     return () => unsubscribe();
   }, [vendorId]);
 
@@ -234,6 +281,58 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
                     <Trash2 size={16} />
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #EDD9C6', padding: '24px', marginTop: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <div style={{ background: '#FDF0E8', padding: '8px', borderRadius: '8px', color: '#F05A1A' }}>
+            <Star size={20} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Customer Reviews</h3>
+            <p style={{ margin: 0, fontSize: '12px', color: '#C7A98A' }}>
+              {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'} for this vendor
+            </p>
+          </div>
+        </div>
+
+        {reviewError ? (
+          <p role="alert" style={{ color: '#B42318', textAlign: 'center', padding: '20px 0', margin: 0, fontSize: '14px' }}>
+            {reviewError}
+          </p>
+        ) : reviews.length === 0 ? (
+          <p style={{ textAlign: 'center', color: '#C7A98A', padding: '20px 0', margin: 0, fontSize: '14px' }}>
+            No reviews found for this vendor.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {reviews.map((review) => (
+              <div
+                key={review.id}
+                style={{ padding: '14px 16px', background: '#FDF0E8', borderRadius: '10px', border: '1px solid #EDD9C6' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                  <span style={{ fontWeight: 700, color: '#2D1A0E', fontSize: '14px' }}>{review.reviewerName}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {review.rating !== null && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#F05A1A', fontWeight: 700, fontSize: '13px' }}>
+                        <Star size={14} fill="currentColor" /> {review.rating}
+                      </span>
+                    )}
+                    {review.createdAt && (
+                      <span style={{ color: '#9B7B5B', fontSize: '12px' }}>
+                        {review.createdAt.toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <p style={{ margin: 0, color: '#7A5C2E', fontSize: '14px', lineHeight: 1.5 }}>
+                  {review.comment || 'No written comment.'}
+                </p>
               </div>
             ))}
           </div>

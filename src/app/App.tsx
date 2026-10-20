@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   BarChart3,
@@ -22,7 +22,11 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { ActivityLogPage, type ActivityEvent } from "./components/ActivityLogPage";
 import { recordAdminActivity } from "./adminActivityApi";
-import { performUserManagementAction, type UserProfileCollection } from "./userManagementApi";
+import {
+  lookupAccountCreationDates,
+  performUserManagementAction,
+  type UserProfileCollection,
+} from "./userManagementApi";
 import { AdminLogin } from "./components/AdminLogin";
 import type { DashboardVendor } from "./components/DashboardCharts";
 import { MonitorVendors } from "./components/MonitorVendors";
@@ -35,6 +39,8 @@ interface UserAccount {
   id: string;
   name: string;
   email: string;
+  collectionName: UserProfileCollection;
+  createdAt: Date | null;
   role?: 'customer' | 'vendor' | 'admin';
   isAccountDisabled?: boolean;
 }
@@ -86,6 +92,9 @@ function AdminDashboardApp({
   // Data State
   const [vendorsList, setVendorsList] = useState<Vendor[]>([]);
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
+  const [authCreatedAtByUid, setAuthCreatedAtByUid] = useState<Record<string, Date>>({});
+  const [analyticsDateLookupError, setAnalyticsDateLookupError] = useState<string | null>(null);
+  const attemptedAnalyticsDateLookups = useRef(new Set<string>());
   const [emailLookupError, setEmailLookupError] = useState<string | null>(null);
   const [activityNotice, setActivityNotice] = useState<string | null>(null);
   const [userActionError, setUserActionError] = useState<string | null>(null);
@@ -266,6 +275,8 @@ function AdminDashboardApp({
             name: String(
               data.name ?? data.fullName ?? data.displayName ?? data.username ?? data.userName ?? "Customer User"
             ),
+            collectionName: "users",
+            createdAt: getRecordCreatedAt(data),
             email: firstNonEmptyString(
               data.email,
               data.eMail,
@@ -299,6 +310,8 @@ function AdminDashboardApp({
             name: String(
               data.name ?? data.stallName ?? data.fullName ?? data.ownerName ?? "Vendor Account"
             ),
+            collectionName: "vendors",
+            createdAt: getRecordCreatedAt(data),
             email: firstNonEmptyString(
               data.email,
               data.eMail,
@@ -329,6 +342,53 @@ function AdminDashboardApp({
       unsubVendors();
     };
   }, [previewMode]);
+
+  useEffect(() => {
+    if (previewMode || screen !== "analytics") return;
+
+    const idsToLookUp = vendorsList
+      .filter((vendor) => {
+        const id = vendor.id ?? vendor.vendorId;
+        if (!id || vendor.createdAt || authCreatedAtByUid[id] || attemptedAnalyticsDateLookups.current.has(id)) {
+          return false;
+        }
+        return !usersList.some(
+          (user) => user.id === id && user.role === "vendor" && user.createdAt
+        );
+      })
+      .map((vendor) => vendor.id ?? vendor.vendorId)
+      .filter((id): id is string => Boolean(id));
+
+    if (!idsToLookUp.length) return;
+    idsToLookUp.forEach((id) => attemptedAnalyticsDateLookups.current.add(id));
+    setAnalyticsDateLookupError(null);
+    let isActive = true;
+
+    const loadRegistrationDates = async () => {
+      try {
+        const resolvedDates: Record<string, Date> = {};
+        for (let index = 0; index < idsToLookUp.length; index += 100) {
+          const dates = await lookupAccountCreationDates(idsToLookUp.slice(index, index + 100));
+          dates.forEach((date, uid) => {
+            resolvedDates[uid] = date;
+          });
+        }
+        if (isActive) setAuthCreatedAtByUid((current) => ({ ...current, ...resolvedDates }));
+      } catch (error) {
+        console.error("Unable to load vendor registration dates for analytics:", error);
+        if (isActive) {
+          setAnalyticsDateLookupError(
+            error instanceof Error ? error.message : "Vendor registration dates could not be loaded."
+          );
+        }
+      }
+    };
+
+    void loadRegistrationDates();
+    return () => {
+      isActive = false;
+    };
+  }, [authCreatedAtByUid, previewMode, screen, usersList, vendorsList]);
 
   const navigate = (s: Screen, tab?: NavTab) => {
     setScreen(s);
@@ -423,12 +483,12 @@ function AdminDashboardApp({
     const actionName = currentStatus ? "re-enable" : "disable";
     if (!window.confirm(`Are you sure you want to ${actionName} Firebase login access for this account?`)) return;
 
-    const collectionName: UserProfileCollection = role === "vendor" ? "vendors" : "users";
+    const account = usersList.find((user) => user.id === id);
+    const collectionName = account?.collectionName ?? (role === "vendor" ? "vendors" : "users");
     setActiveUserActionId(id);
     setUserActionError(null);
     try {
       await performUserManagementAction(currentStatus ? "enable" : "disable", collectionName, id);
-      const account = usersList.find((user) => user.id === id);
       await recordActivity({
         action: currentStatus ? "account.enabled" : "account.disabled",
         entityType: role === "vendor" ? "vendor" : "user",
@@ -449,12 +509,12 @@ function AdminDashboardApp({
     if (previewMode || activeUserActionId) return;
     if (!window.confirm("Permanently delete this account from Firebase Authentication and its selected Firestore profile? This cannot be undone.")) return;
 
-    const collectionName: UserProfileCollection = role === "vendor" ? "vendors" : "users";
+    const account = usersList.find((user) => user.id === id);
+    const collectionName = account?.collectionName ?? (role === "vendor" ? "vendors" : "users");
     setActiveUserActionId(id);
     setUserActionError(null);
     try {
       await performUserManagementAction("delete", collectionName, id);
-      const account = usersList.find((user) => user.id === id);
       setUsersList((currentUsers) => currentUsers.filter((user) => user.id !== id));
       await recordActivity({
         action: "account.deleted",
@@ -490,6 +550,11 @@ function AdminDashboardApp({
   
   const customerCount = usersList.filter(u => u.role === "customer").length;
   const vendorCount = usersList.filter(u => u.role === "vendor").length;
+  const vendorAccountDates = new Map(
+    usersList
+      .filter((user) => user.role === "vendor" && user.createdAt)
+      .map((user) => [user.id, user.createdAt as Date])
+  );
   const chartVendors: DashboardVendor[] = vendorsList.map((vendor) => ({
     id: vendor.id ?? vendor.vendorId ?? "",
     name: vendor.stallName ?? vendor.name ?? "",
@@ -497,7 +562,11 @@ function AdminDashboardApp({
     openingHours: vendor.openingHours ?? vendor.hours ?? "",
     isOpen: vendor.isOpen === true,
     isAccountDisabled: vendor.isAccountDisabled === true,
-    createdAt: vendor.createdAt ?? null,
+    createdAt:
+      vendor.createdAt ??
+      vendorAccountDates.get(vendor.id ?? vendor.vendorId ?? "") ??
+      authCreatedAtByUid[vendor.id ?? vendor.vendorId ?? ""] ??
+      null,
   }));
 
   const renderScreen = () => {
@@ -520,6 +589,7 @@ function AdminDashboardApp({
             vendors={chartVendors}
             registeredUsers={usersList.length}
             disabledUserCount={usersList.filter((user) => user.isAccountDisabled).length}
+            registrationDateError={analyticsDateLookupError}
             onManageVendors={() => navigate("vendors", "vendors")}
             onManageUsers={() => navigate("users", "users")}
           />

@@ -127,10 +127,14 @@ exports.lookupAccountEmails = onRequest(
 
           try {
             const account = await auth.getUser(uid);
-            return { uid, email: account.email ?? null };
+            return {
+              uid,
+              email: account.email ?? null,
+              createdAt: account.metadata.creationTime ?? null,
+            };
           } catch (error) {
             if (error.code === "auth/user-not-found") {
-              return { uid, email: null };
+              return { uid, email: null, createdAt: null };
             }
             throw error;
           }
@@ -405,38 +409,38 @@ exports.adminUserAction = onRequest(
 
     const accountRef = firestore.doc(`${collectionName}/${accountId}`);
     try {
+      if (action === "delete") {
+        try {
+          await auth.deleteUser(accountId);
+        } catch (error) {
+          if (error.code !== "auth/user-not-found") throw error;
+        }
+        await accountRef.delete();
+        response.status(200).json({ success: true, action, authAccountDeleted: true });
+        return;
+      }
+
       const accountSnapshot = await accountRef.get();
       if (!accountSnapshot.exists) {
         response.status(404).json({ code: "not-found", error: "The account record no longer exists. Refresh the user list." });
         return;
       }
 
-      if (action === "disable" || action === "enable") {
-        try {
-          await auth.updateUser(accountId, { disabled: action === "disable" });
-        } catch (error) {
-          if (error.code === "auth/user-not-found") {
-            response.status(404).json({
-              code: "auth-user-not-found",
-              error: "No Firebase Authentication account matches this record ID, so login access was not changed.",
-            });
-            return;
-          }
-          throw error;
-        }
-
-        await accountRef.update({ isAccountDisabled: action === "disable" });
-        response.status(200).json({ success: true, action, authAccountUpdated: true });
-        return;
-      }
-
       try {
-        await auth.deleteUser(accountId);
+        await auth.updateUser(accountId, { disabled: action === "disable" });
       } catch (error) {
-        if (error.code !== "auth/user-not-found") throw error;
+        if (error.code === "auth/user-not-found") {
+          response.status(404).json({
+            code: "auth-user-not-found",
+            error: "No Firebase Authentication account matches this record ID, so login access was not changed.",
+          });
+          return;
+        }
+        throw error;
       }
-      await accountRef.delete();
-      response.status(200).json({ success: true, action, authAccountDeleted: true });
+
+      await accountRef.update({ isAccountDisabled: action === "disable" });
+      response.status(200).json({ success: true, action, authAccountUpdated: true });
     } catch (error) {
       console.error(`Failed to ${action} account ${accountId}:`, error);
       response.status(500).json({ code: "internal", error: "The account action failed. Refresh the user list and try again." });
