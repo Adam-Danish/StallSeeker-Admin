@@ -840,8 +840,8 @@ function AdminDashboardApp({
                         <td style={{ padding: "12px 16px" }}>
                           <span style={{
                             padding: "4px 8px", borderRadius: "6px", fontSize: "12px", fontWeight: 600,
-                            background: u.role === "vendor" ? "#FDF0E8" : "#E8F5E9",
-                            color: u.role === "vendor" ? "#F05A1A" : "#2E7D32"
+                            background: u.role === "admin" ? "#E8F1FF" : u.role === "vendor" ? "#FDF0E8" : "#E8F5E9",
+                            color: u.role === "admin" ? "#2563EB" : u.role === "vendor" ? "#F05A1A" : "#2E7D32"
                           }}>
                             {(u.role || "customer").toUpperCase()}
                           </span>
