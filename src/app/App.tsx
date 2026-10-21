@@ -181,7 +181,8 @@ function AdminDashboardApp({
             data.mobile,
             data.contactNumber,
             data.contact_number,
-            data.telephone
+            data.telephone,
+            data.contact
           ),
           isAccountDisabled: Boolean(data.isAccountDisabled),
           createdAt: getRecordCreatedAt(data),
@@ -610,6 +611,14 @@ function AdminDashboardApp({
                           (v.category || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === "All" || v.category === categoryFilter;
     return matchesSearch && matchesCategory;
+  }).map((vendor) => {
+    const vendorAccount = usersList.find(
+      (user) => user.id === (vendor.id ?? vendor.vendorId) && user.role === "vendor"
+    );
+    return {
+      ...vendor,
+      phoneNumber: vendor.phoneNumber || vendorAccount?.phoneNumber || "",
+    };
   });
 
   // User Filter & Search Processing

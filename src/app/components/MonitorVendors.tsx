@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Store, AlertTriangle, MapPin, ChevronRight, CheckCircle, Search } from "lucide-react";
+import { Store, AlertTriangle, MapPin, ChevronRight, CheckCircle, Search, Phone } from "lucide-react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 import type { Vendor } from "./types";
@@ -15,6 +15,48 @@ interface Props {
   previewMode?: boolean;
 }
 
+function firstNonEmptyValue(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
+}
+
+function firstImageUrl(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function VendorProfileImage({ vendor }: { vendor: Vendor }) {
+  const [failed, setFailed] = useState(false);
+  const imageUrl = vendor.profileImageUrl || vendor.imageUrl || "";
+
+  if (!imageUrl || failed) {
+    return (
+      <div
+        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: "#FDF0E8" }}
+        aria-label={imageUrl ? "Vendor profile image unavailable" : "No vendor profile image"}
+        role="img"
+      >
+        <Store size={20} color="#F05A1A" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={`${vendor.stallName || vendor.name || "Vendor"} profile`}
+      onError={() => setFailed(true)}
+      className="w-11 h-11 rounded-xl flex-shrink-0 object-cover"
+    />
+  );
+}
+
 export function MonitorVendors({
   onBack,
   onVendorDetail,
@@ -23,12 +65,13 @@ export function MonitorVendors({
   onDeleteListing,
   previewMode = false,
 }: Props) {
-  const [vendors, setVendors] = useState<Vendor[]>(initialVendors || []);
+  const [liveVendors, setLiveVendors] = useState<Vendor[]>([]);
+  const vendors = initialVendors ?? liveVendors;
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (previewMode) return;
+    if (previewMode || initialVendors !== undefined) return;
 
     const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
       const v = snapshot.docs.map((doc) => {
@@ -50,14 +93,43 @@ export function MonitorVendors({
           longitude: Number.isFinite(longitude) ? longitude : 0,
           lat: Number.isFinite(latitude) ? latitude : 0,
           lng: Number.isFinite(longitude) ? longitude : 0,
-          imageUrl: data.imageUrl || "",
+          imageUrl: firstImageUrl(
+            data.profileImageUrl,
+            data.profilePictureUrl,
+            data.photoURL,
+            data.photoUrl,
+            data.imageUrl,
+            data.imageURL,
+            data.image
+          ),
+          profileImageUrl: firstImageUrl(
+            data.profileImageUrl,
+            data.profilePictureUrl,
+            data.photoURL,
+            data.photoUrl,
+            data.imageUrl,
+            data.imageURL,
+            data.image
+          ),
+          phoneNumber: firstNonEmptyValue(
+            data.phoneNumber,
+            data.phone_number,
+            data.phone,
+            data.mobileNumber,
+            data.mobile_number,
+            data.mobile,
+            data.contactNumber,
+            data.contact_number,
+            data.telephone,
+            data.contact
+          ),
         } as Vendor;
       });
-      setVendors(v);
+      setLiveVendors(v);
     });
 
     return () => unsubscribe();
-  }, [previewMode]);
+  }, [initialVendors, previewMode]);
 
   const filtered = vendors.filter((v) => {
     const matchFilter =
@@ -66,8 +138,9 @@ export function MonitorVendors({
       (filter === "Closed" && !v.isOpen);
     const matchSearch =
       search === "" ||
-      v.stallName.toLowerCase().includes(search.toLowerCase()) ||
-      v.category.toLowerCase().includes(search.toLowerCase());
+      (v.stallName || v.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (v.category || "").toLowerCase().includes(search.toLowerCase()) ||
+      (v.phoneNumber || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
@@ -140,12 +213,10 @@ export function MonitorVendors({
             style={{ background: "#fff", border: "1px solid #EDD9C6", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
           >
             <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "#FDF0E8" }}>
-                  <Store size={20} color="#F05A1A" />
-                </div>
+              <div className="flex min-w-0 items-center gap-3">
+                <VendorProfileImage vendor={vendor} />
                 <div>
-                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#2D1A0E" }}>{vendor.stallName}</p>
+                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#2D1A0E" }}>{vendor.stallName || vendor.name || "Vendor"}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <MapPin size={11} color="#C7A98A" />
                     <span style={{ fontSize: "11px", color: "#C7A98A" }}>
@@ -177,6 +248,17 @@ export function MonitorVendors({
               <span style={{ fontSize: "12px", color: "#7A5C2E" }}>
                 {vendor.category} • {vendor.openingHours || "Hours not set"}
               </span>
+            </div>
+
+            <div className="mb-4 flex items-center gap-2" style={{ color: "#7A5C2E", fontSize: "13px" }}>
+              <Phone size={14} color="#C7A98A" aria-hidden="true" />
+              {vendor.phoneNumber ? (
+                <a href={`tel:${vendor.phoneNumber}`} style={{ color: "inherit", textDecoration: "none" }}>
+                  {vendor.phoneNumber}
+                </a>
+              ) : (
+                <span style={{ color: "#9B7B5B" }}>Phone not provided</span>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
