@@ -12,6 +12,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      FIREBASE_SERVICE_ACCOUNT_STALLSEEKER_C2FFE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STALLSEEKER_C2FFE }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -29,9 +32,11 @@ jobs:
         run: npm run build
 
       - name: Authenticate with Firebase
+        if: env.FIREBASE_SERVICE_ACCOUNT != '' || env.FIREBASE_SERVICE_ACCOUNT_STALLSEEKER_C2FFE != ''
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_STALLSEEKER_C2FFE }}
 
       - name: Deploy Hosting
+        if: env.FIREBASE_SERVICE_ACCOUNT != '' || env.FIREBASE_SERVICE_ACCOUNT_STALLSEEKER_C2FFE != ''
         run: npx --yes firebase-tools deploy --only hosting --project stallseeker-c2ffe --non-interactive
