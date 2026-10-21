@@ -13,6 +13,7 @@ export interface Vendor {
   lat?: number;
   lng?: number;
   imageUrl?: string;
+  profileImageUrl?: string;
   isAccountDisabled?: boolean;
   createdAt?: Date | null;
 }

@@ -57,6 +57,13 @@ function firstNonEmptyString(...values: unknown[]): string {
   return "No Email Provided";
 }
 
+function firstImageUrl(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
 function AdminDashboardApp({
   previewMode = false,
   onPreviewSignOut,
@@ -137,7 +144,24 @@ function AdminDashboardApp({
           longitude: Number.isFinite(longitude) ? longitude : 0,
           lat: Number.isFinite(latitude) ? latitude : 0,
           lng: Number.isFinite(longitude) ? longitude : 0,
-          imageUrl: data.imageUrl || "",
+          imageUrl: firstImageUrl(
+            data.profileImageUrl,
+            data.profilePictureUrl,
+            data.photoURL,
+            data.photoUrl,
+            data.imageUrl,
+            data.imageURL,
+            data.image
+          ),
+          profileImageUrl: firstImageUrl(
+            data.profileImageUrl,
+            data.profilePictureUrl,
+            data.photoURL,
+            data.photoUrl,
+            data.imageUrl,
+            data.imageURL,
+            data.image
+          ),
           isAccountDisabled: Boolean(data.isAccountDisabled),
           createdAt: getRecordCreatedAt(data),
         } as Vendor & { isAccountDisabled?: boolean };

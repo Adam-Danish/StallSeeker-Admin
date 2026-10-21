@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Utensils, Plus, Trash2, ArrowLeft, Power, Star } from 'lucide-react';
+import { Utensils, Plus, Trash2, ArrowLeft, Power, Star, Store, ImageOff } from 'lucide-react';
 import type { Vendor } from './types';
 
 interface MenuItem {
   id: string;
   name: string;
   price: number;
+  imageUrl: string;
 }
 
 interface StallReview {
@@ -24,6 +25,40 @@ interface VendorDetailProps {
   onSuspend: () => void;
   onReactivate: () => void;
 }
+
+function firstImageUrl(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+const imagePlaceholderStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: '#FDF0E8',
+  color: '#C7A98A',
+};
+
+const ImagePreview: React.FC<{
+  src: string;
+  alt: string;
+  style: React.CSSProperties;
+  fallbackIcon?: React.ReactNode;
+}> = ({ src, alt, style, fallbackIcon }) => {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div role="img" aria-label={src ? `${alt} unavailable` : `${alt} not provided`} style={{ ...imagePlaceholderStyle, ...style }}>
+        {fallbackIcon ?? <ImageOff size={24} />}
+      </div>
+    );
+  }
+
+  return <img src={src} alt={alt} style={style} onError={() => setFailed(true)} />;
+};
 
 export const VendorDetail: React.FC<VendorDetailProps> = ({
   vendor,
@@ -54,6 +89,14 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
         id: d.id,
         name: d.data().name || '',
         price: Number(d.data().price) || 0,
+        imageUrl: firstImageUrl(
+          d.data().imageUrl,
+          d.data().imageURL,
+          d.data().photoUrl,
+          d.data().photoURL,
+          d.data().image,
+          d.data().foodImageUrl
+        ),
       }));
       setMenuItems(items);
     });
@@ -136,12 +179,20 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       </button>
 
       {/* Header Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '24px', color: '#2D1A0E' }}>{vendorName}</h2>
-          <p style={{ margin: 0, color: '#C7A98A', fontSize: '14px' }}>
-            📍 {vendorLatitude}, {vendorLongitude}
-          </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
+          <ImagePreview
+            src={vendor.profileImageUrl || vendor.imageUrl || ''}
+            alt={`${vendorName} profile picture`}
+            style={{ width: '80px', height: '80px', borderRadius: '18px', objectFit: 'cover', flexShrink: 0 }}
+            fallbackIcon={<Store size={28} />}
+          />
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: '24px', color: '#2D1A0E' }}>{vendorName}</h2>
+            <p style={{ margin: 0, color: '#C7A98A', fontSize: '14px' }}>
+              📍 {vendorLatitude}, {vendorLongitude}
+            </p>
+          </div>
         </div>
         <button
           onClick={vendorStatus ? onSuspend : onReactivate}
@@ -182,7 +233,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       </div>
 
       {/* 🍔 MANAGE MENU SECTION */}
-      <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #EDD9C6', padding: '24px' }}>
+      <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #EDD9C6', padding: '24px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
           <div style={{ background: '#FDF0E8', padding: '8px', borderRadius: '8px', color: '#F05A1A' }}>
             <Utensils size={20} />
@@ -249,26 +300,35 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
             No menu items found. Add one above!
           </p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
             {menuItems.map((item) => (
               <div
                 key={item.id}
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 16px',
-                  background: '#FDF0E8',
-                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  background: '#fff',
+                  borderRadius: '12px',
                   border: '1px solid #EDD9C6',
                 }}
               >
-                <span style={{ fontWeight: 600, color: '#2D1A0E', fontSize: '14px' }}>{item.name}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <span style={{ fontWeight: 700, color: '#F05A1A', fontSize: '14px' }}>
-                    RM {item.price.toFixed(2)}
-                  </span>
+                <ImagePreview
+                  src={item.imageUrl}
+                  alt={`${item.name || 'Menu item'} photo`}
+                  style={{ width: '100%', height: '180px', objectFit: 'cover' }}
+                  fallbackIcon={<Utensils size={28} />}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '12px 14px' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, color: '#2D1A0E', fontSize: '14px' }}>
+                      {item.name || 'Menu item'}
+                    </p>
+                    <span style={{ display: 'inline-block', marginTop: '4px', fontWeight: 700, color: '#F05A1A', fontSize: '14px' }}>
+                      RM {item.price.toFixed(2)}
+                    </span>
+                  </div>
                   <button
+                    type="button"
+                    aria-label={`Delete ${item.name || 'menu item'}`}
                     onClick={() => handleDeleteItem(item.id)}
                     style={{
                       background: 'none',
