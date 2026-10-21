@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 {
   "hosting": {
     "site": "stallseeker-admin",
@@ -25,31 +24,3 @@
     ]
   }
 }
-=======
-{
-  "functions": {
-    "source": "functions",
-    "ignore": [
-      "node_modules",
-      ".git",
-      "firebase-debug.log",
-      "firebase-debug.*"
-    ]
-  },
-  "hosting": {
-    "site": "stallseeker-admin",
-    "public": "dist",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
-  }
-}
->>>>>>> 8f13ac8a73e0ae70ebe3aa9e30a6b4992ebe198c

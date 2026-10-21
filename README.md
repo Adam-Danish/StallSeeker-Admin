@@ -1,16 +1,20 @@
-<<<<<<< HEAD
-# StallSeeker-Admin
-Admin Page of the StallSeeker
-=======
+# StallSeeker Admin
 
-  # StallSeeker Admin Web Dashboard Prototype
+Admin dashboard for StallSeeker.
 
-  This is a code bundle for StallSeeker Admin Web Dashboard Prototype. The original project is available at https://www.figma.com/design/ZtMQpLRl0neCg2iQ3kOBJ4/StallSeeker-Admin-Web-Dashboard-Prototype.
+## Run locally
 
-  ## Running the code
+```sh
+npm ci
+npm run dev
+```
 
-  Run `npm i` to install the dependencies.
+## Deploy to Firebase Hosting
 
-  Run `npm run dev` to start the development server.
-  
->>>>>>> 0fb2be89 (Initial commit with Firebase integration)
+Pushes to `main` deploy the production Hosting site through GitHub Actions. Before the first automated deployment, add a repository Actions secret named `FIREBASE_SERVICE_ACCOUNT` containing the JSON key for a service account with permission to deploy Firebase Hosting to project `stallseeker-c2ffe`.
+
+To deploy manually from an authenticated local Firebase CLI session:
+
+```sh
+npm run deploy
+```
