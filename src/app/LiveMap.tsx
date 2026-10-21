@@ -43,9 +43,14 @@ const RecenterMap = ({ markers }: { markers: [number, number][] }) => {
   return null;
 };
 
-export const LiveVendorMap: React.FC<{ onVendorSelect?: (id: string) => void; previewMode?: boolean }> = ({
+export const LiveVendorMap: React.FC<{
+  onVendorSelect?: (id: string) => void;
+  previewMode?: boolean;
+  fullSize?: boolean;
+}> = ({
   onVendorSelect,
   previewMode = false,
+  fullSize = false,
 }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [activeCount, setActiveCount] = useState<number>(0);
@@ -87,8 +92,17 @@ export const LiveVendorMap: React.FC<{ onVendorSelect?: (id: string) => void; pr
   const markerPositions: [number, number][] = vendors.map((v) => [v.lat, v.lng]);
 
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', padding: '16px', border: '1px solid #EDD9C6', marginBottom: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+    <div style={{
+      background: '#fff',
+      borderRadius: fullSize ? '0' : '12px',
+      padding: fullSize ? '20px' : '16px',
+      border: fullSize ? 'none' : '1px solid #EDD9C6',
+      marginBottom: fullSize ? '0' : '24px',
+      height: fullSize ? '100%' : undefined,
+      display: fullSize ? 'flex' : undefined,
+      flexDirection: fullSize ? 'column' : undefined,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '14px', color: '#C7A98A', letterSpacing: '0.5px' }}>{previewMode ? 'VENDOR LOCATIONS' : 'LIVE VENDOR LOCATIONS'}</h3>
           <p style={{ margin: 0, fontSize: '13px', color: '#2D1A0E' }}>
@@ -106,7 +120,7 @@ export const LiveVendorMap: React.FC<{ onVendorSelect?: (id: string) => void; pr
         <div className="flex h-[200px] items-center justify-center rounded-lg text-sm" style={{ background: "#f8f7f3", color: "#82766a" }}>
           Live map disabled in local preview mode.
         </div>
-      ) : <div style={{ height: '350px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+      ) : <div style={{ height: fullSize ? '100%' : '350px', minHeight: fullSize ? '420px' : undefined, flex: fullSize ? 1 : undefined, width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
         <MapContainer center={[2.9369, 101.7914]} zoom={13} style={{ height: '100%', width: '100%' }}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

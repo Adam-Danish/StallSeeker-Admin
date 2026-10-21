@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
   BarChart3,
+  Map as MapIcon,
   History,
   CalendarDays,
   Moon,
@@ -49,8 +50,8 @@ interface UserAccount {
   isAccountDisabled?: boolean;
 }
 
-type Screen = "dashboard" | "analytics" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
-type NavTab = "dashboard" | "analytics" | "activity-log" | "booking-history" | "vendors" | "users";
+type Screen = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
+type NavTab = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users";
 
 function firstNonEmptyString(...values: unknown[]): string {
   for (const value of values) {
@@ -471,6 +472,7 @@ function AdminDashboardApp({
     setActiveTab(tab);
     if (tab === "dashboard") setScreen("dashboard");
     if (tab === "analytics") setScreen("analytics");
+    if (tab === "map") setScreen("map");
     if (tab === "activity-log") setScreen("activity-log");
     if (tab === "booking-history") setScreen("booking-history");
     if (tab === "vendors") setScreen("vendors");
@@ -674,6 +676,13 @@ function AdminDashboardApp({
             onManageVendors={() => navigate("vendors", "vendors")}
             onManageUsers={() => navigate("users", "users")}
           />
+        );
+
+      case "map":
+        return (
+          <div className="h-full min-h-[520px]">
+            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} previewMode={previewMode} fullSize />
+          </div>
         );
 
       case "activity-log":
@@ -904,6 +913,7 @@ function AdminDashboardApp({
   const navItems: { tab: NavTab; label: string; icon: React.ReactNode }[] = [
     { tab: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { tab: "analytics", label: "Analytics", icon: <BarChart3 size={18} /> },
+    { tab: "map", label: "Vendor Map", icon: <MapIcon size={18} /> },
     { tab: "activity-log", label: "Activity Log", icon: <History size={18} /> },
     { tab: "booking-history", label: "Booking History", icon: <CalendarDays size={18} /> },
     { tab: "vendors", label: "Vendors", icon: <Store size={18} /> },
@@ -913,6 +923,7 @@ function AdminDashboardApp({
   const pageTitle: Record<Screen, string> = {
     dashboard: "Admin Dashboard",
     analytics: "Analytics",
+    map: "Vendor Map",
     "activity-log": "Activity Log",
     "booking-history": "Booking History",
     vendors: "Monitor Vendors",
