@@ -267,30 +267,6 @@ export function AnalyticsPage({
         </div>
       </section>
 
-      <section className="rounded-2xl p-5 sm:p-6" style={cardStyle} aria-labelledby="tracking-heading">
-        <div className="mb-4">
-          <h3 id="tracking-heading" className="text-base font-semibold" style={{ color: "#2d241d" }}>
-            Metrics not tracked yet
-          </h3>
-          <p className="mt-1 text-sm" style={{ color: "#82766a" }}>
-            These require event or transaction data before the analytics can report them reliably.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-          <div className="rounded-xl p-4" style={{ background: "#faf8f4" }}>
-            <p className="font-semibold" style={{ color: "#433a31" }}>Engagement</p>
-            <p className="mt-1 leading-relaxed" style={{ color: "#82766a" }}>Views, searches, favorites, and contact clicks</p>
-          </div>
-          <div className="rounded-xl p-4" style={{ background: "#faf8f4" }}>
-            <p className="font-semibold" style={{ color: "#433a31" }}>Sales</p>
-            <p className="mt-1 leading-relaxed" style={{ color: "#82766a" }}>Orders and revenue by vendor or category</p>
-          </div>
-          <div className="rounded-xl p-4" style={{ background: "#faf8f4" }}>
-            <p className="font-semibold" style={{ color: "#433a31" }}>Status history</p>
-            <p className="mt-1 leading-relaxed" style={{ color: "#82766a" }}>Suspensions and changes over time</p>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
