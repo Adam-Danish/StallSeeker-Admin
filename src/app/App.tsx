@@ -126,7 +126,7 @@ function AdminDashboardApp({
   const [searchQuery, setSearchQuery] = useState("");
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
-  const [userTypeFilter, setUserTypeFilter] = useState<"all" | "customers" | "vendors">("all");
+  const [userTypeFilter, setUserTypeFilter] = useState<"all" | "customers" | "vendors" | "admins">("all");
 
   // Edit Listing State
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
@@ -625,7 +625,15 @@ function AdminDashboardApp({
 
   // User Filter & Search Processing
   const filteredUsers = usersList.filter((u) => {
-    const matchesRole = userTypeFilter === "all" ? true : u.role === (userTypeFilter === "customers" ? "customer" : "vendor");
+    const matchesRole = userTypeFilter === "all"
+      ? true
+      : u.role === (
+        userTypeFilter === "customers"
+          ? "customer"
+          : userTypeFilter === "vendors"
+            ? "vendor"
+            : "admin"
+      );
     const matchesSearch = u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                           u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
     return matchesRole && matchesSearch;
@@ -633,6 +641,7 @@ function AdminDashboardApp({
   
   const customerCount = usersList.filter(u => u.role === "customer").length;
   const vendorCount = usersList.filter(u => u.role === "vendor").length;
+  const adminCount = usersList.filter(u => u.role === "admin").length;
   const vendorAccountDates = new Map(
     usersList
       .filter((user) => user.role === "vendor" && user.createdAt)
@@ -796,6 +805,22 @@ function AdminDashboardApp({
                 }}
               >
                 Vendors ({vendorCount})
+              </button>
+              <button
+                onClick={() => setUserTypeFilter("admins")}
+                style={{
+                  padding: "12px 20px",
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: userTypeFilter === "admins" ? "#2563EB" : "#7A5C2E",
+                  borderBottom: userTypeFilter === "admins" ? "3px solid #2563EB" : "none",
+                  marginBottom: "-2px"
+                }}
+              >
+                Admins ({adminCount})
               </button>
             </div>
 
