@@ -15,9 +15,12 @@ import { getRecordCreatedAt } from "../dateUtils";
 interface BookingRecord {
   id: string;
   reference: string;
+  paymentReference: string;
+  itemsSummary: string;
   customer: string;
   vendor: string;
   status: string;
+  bookingStage: string;
   date: Date | null;
   amount: string;
   searchText: string;
@@ -66,10 +69,17 @@ function getBookingDate(data: Record<string, unknown>): Date | null {
     const date = parseDate(data[field]);
     if (date) return date;
   }
-  return getRecordCreatedAt(data);
+  return getRecordCreatedAt(data) ?? parseDate(data.paymentPaidAt);
 }
 
 function getAmount(data: Record<string, unknown>): string {
+  const centsValue = data.totalCents ?? data.amountCents ?? data.priceCents;
+  if (typeof centsValue === "number" && Number.isFinite(centsValue)) {
+    return new Intl.NumberFormat("en-MY", {
+      style: "currency",
+      currency: typeof data.currency === "string" ? data.currency : "MYR",
+    }).format(centsValue / 100);
+  }
   const value = data.amount ?? data.totalAmount ?? data.bookingAmount ?? data.paymentAmount ?? data.total ?? data.price;
   if (typeof value === "number" && Number.isFinite(value)) {
     return new Intl.NumberFormat("en-MY", {
@@ -81,12 +91,25 @@ function getAmount(data: Record<string, unknown>): string {
   return "—";
 }
 
+function getItemsSummary(data: Record<string, unknown>): string {
+  if (!Array.isArray(data.items)) return "";
+  return data.items
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item) => {
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
+      return name ? `${quantity}× ${name}` : "";
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
 function getStatusTone(status: string): { color: string; background: string } {
   const normalized = status.toLowerCase();
-  if (["paid", "completed", "complete", "success", "successful", "approved"].some((value) => normalized.includes(value))) {
+  if (["paid", "completed", "complete", "success", "successful", "approved", "collected"].some((value) => normalized.includes(value))) {
     return { color: "#22845b", background: "#eaf6ef" };
   }
-  if (["pending", "processing", "unpaid", "waiting"].some((value) => normalized.includes(value))) {
+  if (["pending", "processing", "unpaid", "waiting", "awaiting"].some((value) => normalized.includes(value))) {
     return { color: "#9b5f26", background: "#fbf3e8" };
   }
   if (["failed", "cancel", "reject", "refund", "error"].some((value) => normalized.includes(value))) {
@@ -97,12 +120,12 @@ function getStatusTone(status: string): { color: string; background: string } {
 
 function isPaidStatus(status: string): boolean {
   const normalized = status.toLowerCase();
-  return ["paid", "completed", "complete", "success", "successful", "approved"].some((value) => normalized.includes(value));
+  return ["paid", "completed", "complete", "success", "successful", "approved", "collected"].some((value) => normalized.includes(value));
 }
 
 function isPendingStatus(status: string): boolean {
   const normalized = status.toLowerCase();
-  return ["pending", "processing", "unpaid", "waiting"].some((value) => normalized.includes(value));
+  return ["pending", "processing", "unpaid", "waiting", "awaiting"].some((value) => normalized.includes(value));
 }
 
 function formatDate(date: Date | null): string {
@@ -118,6 +141,8 @@ function formatDate(date: Date | null): string {
 
 function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
   const reference = firstString(data, ["bookingId", "bookingID", "reference", "transactionId", "paymentId"], id);
+  const paymentReference = firstString(data, ["paymentReference"], "");
+  const itemsSummary = getItemsSummary(data);
   const customer = firstString(
     data,
     ["customerName", "userName", "fullName", "name", "customerEmail", "userEmail", "userId", "customerId"],
@@ -128,19 +153,23 @@ function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
     ["vendorName", "stallName", "businessName", "vendorId", "stallId"],
     "Vendor unavailable"
   );
-  const status = firstString(data, ["bookingStatus", "paymentStatus", "status", "state"], "Unknown");
+  const status = firstString(data, ["paymentStatus", "bookingStatus", "status", "state"], "Unknown");
+  const bookingStage = firstString(data, ["status", "bookingStatus", "state"], "");
   const date = getBookingDate(data);
   const amount = getAmount(data);
 
   return {
     id,
     reference,
+    paymentReference,
+    itemsSummary,
     customer,
     vendor,
     status,
+    bookingStage,
     date,
     amount,
-    searchText: [reference, customer, vendor, status, amount].join(" ").toLowerCase(),
+    searchText: [reference, paymentReference, itemsSummary, customer, vendor, status, bookingStage, amount].join(" ").toLowerCase(),
   };
 }
 
@@ -220,7 +249,7 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
             <h2 className="text-2xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Booking history</h2>
           </div>
           <p className="mt-3 text-sm" style={{ color: "#655848" }}>
-            Booking records require an authenticated Firebase administrator session. Sign out of preview and sign in with your admin account to load the bookingPayment collection.
+            Booking records require an authenticated Firebase administrator session. Sign out of preview and sign in with your admin account to load the bookings collection.
           </p>
         </section>
       </div>
@@ -331,15 +360,34 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
                   const tone = getStatusTone(booking.status);
                   return (
                     <tr key={booking.id} className="border-t" style={{ borderColor: "#f0ede7" }}>
-                      <td className="px-5 py-4 font-semibold" style={{ color: "#433a31" }}>{booking.reference}</td>
+                      <td className="px-5 py-4 font-semibold" style={{ color: "#433a31" }}>
+                        <div>{booking.reference}</div>
+                        {booking.itemsSummary && (
+                          <div className="mt-0.5 text-xs font-normal" style={{ color: "#655848" }}>
+                            {booking.itemsSummary}
+                          </div>
+                        )}
+                        {booking.paymentReference && booking.paymentReference !== booking.reference && (
+                          <div className="mt-0.5 max-w-xs truncate text-xs font-normal" style={{ color: "#82766a" }} title={booking.paymentReference}>
+                            Ref: {booking.paymentReference}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-5 py-4" style={{ color: "#655848" }}>{booking.customer}</td>
                       <td className="px-5 py-4" style={{ color: "#655848" }}>{booking.vendor}</td>
                       <td className="px-5 py-4" style={{ color: "#655848" }}>{formatDate(booking.date)}</td>
                       <td className="px-5 py-4 font-medium" style={{ color: "#433a31" }}>{booking.amount}</td>
                       <td className="px-5 py-4">
-                        <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold" style={tone}>
-                          {booking.status}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold" style={tone}>
+                            {booking.status}
+                          </span>
+                          {booking.bookingStage && booking.bookingStage.toLowerCase() !== booking.status.toLowerCase() && (
+                            <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-medium" style={{ color: "#655848", background: "#f4efe7" }}>
+                              {booking.bookingStage}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -358,7 +406,7 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
             <p className="mt-1 max-w-md text-sm" style={{ color: "#82766a" }}>
               {bookings.length
                 ? "Try another search term or status."
-                : "New records saved to the bookingPayment collection will appear here."}
+                : "New records saved to the bookings collection will appear here."}
             </p>
           </div>
         )}

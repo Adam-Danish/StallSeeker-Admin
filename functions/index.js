@@ -231,6 +231,7 @@ const BOOKING_HISTORY_FIELDS = [
   "bookingId",
   "bookingID",
   "reference",
+  "paymentReference",
   "transactionId",
   "paymentId",
   "customerName",
@@ -255,6 +256,8 @@ const BOOKING_HISTORY_FIELDS = [
   "appointmentDate",
   "date",
   "paymentDate",
+  "paymentPaidAt",
+  "paymentExpiresAt",
   "createdAt",
   "created_at",
   "createdOn",
@@ -263,6 +266,8 @@ const BOOKING_HISTORY_FIELDS = [
   "date_created",
   "createdDate",
   "created_date",
+  "updatedAt",
+  "expiresAt",
   "timestamp",
   "amount",
   "totalAmount",
@@ -270,8 +275,43 @@ const BOOKING_HISTORY_FIELDS = [
   "paymentAmount",
   "total",
   "price",
+  "totalCents",
+  "paymentRefundedCents",
+  "paymentMode",
+  "paymentProvider",
+  "checkoutFirst",
   "currency",
+  "items",
 ];
+
+function serializeBookingData(data) {
+  const visibleFields = {};
+  for (const field of BOOKING_HISTORY_FIELDS) {
+    const value = data[field];
+    if (value instanceof Timestamp) {
+      visibleFields[field] = value.toMillis();
+    } else if (value instanceof Date) {
+      visibleFields[field] = value.getTime();
+    } else if (field === "items" && Array.isArray(value)) {
+      visibleFields[field] = value
+        .filter((item) => item && typeof item === "object")
+        .map((item) => ({
+          itemId: typeof item.itemId === "string" ? item.itemId : "",
+          name: typeof item.name === "string" ? item.name : "",
+          unitPriceCents: typeof item.unitPriceCents === "number" ? item.unitPriceCents : 0,
+          quantity: typeof item.quantity === "number" ? item.quantity : 0,
+        }));
+    } else if (
+      value === null ||
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      visibleFields[field] = value;
+    }
+  }
+  return visibleFields;
+}
 
 exports.getBookingHistory = onCall(
   { region: "us-central1" },
@@ -279,29 +319,23 @@ exports.getBookingHistory = onCall(
     await requireAdmin(request);
 
     try {
-      const snapshot = await firestore.collection("bookingPayment").limit(500).get();
-      return {
-        bookings: snapshot.docs.map((booking) => {
-          const data = booking.data();
-          const visibleFields = {};
-          for (const field of BOOKING_HISTORY_FIELDS) {
-            const value = data[field];
-            if (value instanceof Timestamp) {
-              visibleFields[field] = value.toMillis();
-            } else if (value instanceof Date) {
-              visibleFields[field] = value.getTime();
-            } else if (
-              value === null ||
-              typeof value === "string" ||
-              typeof value === "number" ||
-              typeof value === "boolean"
-            ) {
-              visibleFields[field] = value;
-            }
-          }
+      const [bookingsSnapshot, legacySnapshot] = await Promise.all([
+        firestore.collection("bookings").limit(500).get(),
+        firestore.collection("bookingPayment").limit(500).get(),
+      ]);
+      const docsById = new Map();
+      for (const doc of legacySnapshot.docs) {
+        docsById.set(doc.id, doc);
+      }
+      for (const doc of bookingsSnapshot.docs) {
+        docsById.set(doc.id, doc);
+      }
 
-          return { id: booking.id, data: visibleFields };
-        }),
+      return {
+        bookings: Array.from(docsById.values()).map((booking) => ({
+          id: booking.id,
+          data: serializeBookingData(booking.data()),
+        })),
       };
     } catch (error) {
       console.error("Unable to load booking history for an administrator:", error);
