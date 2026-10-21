@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   BarChart3,
   History,
+  CalendarDays,
   Moon,
   Sun,
   LogOut,
@@ -21,6 +22,7 @@ import { getRecordCreatedAt } from "./dateUtils";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { ActivityLogPage, type ActivityEvent } from "./components/ActivityLogPage";
+import { BookingHistoryPage } from "./components/BookingHistoryPage";
 import { recordAdminActivity } from "./adminActivityApi";
 import {
   lookupAccountCreationDates,
@@ -45,8 +47,8 @@ interface UserAccount {
   isAccountDisabled?: boolean;
 }
 
-type Screen = "dashboard" | "analytics" | "activity-log" | "vendors" | "users" | "vendor-detail" | "action-confirm";
-type NavTab = "dashboard" | "analytics" | "activity-log" | "vendors" | "users";
+type Screen = "dashboard" | "analytics" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
+type NavTab = "dashboard" | "analytics" | "activity-log" | "booking-history" | "vendors" | "users";
 
 function firstNonEmptyString(...values: unknown[]): string {
   for (const value of values) {
@@ -400,6 +402,7 @@ function AdminDashboardApp({
     if (tab === "dashboard") setScreen("dashboard");
     if (tab === "analytics") setScreen("analytics");
     if (tab === "activity-log") setScreen("activity-log");
+    if (tab === "booking-history") setScreen("booking-history");
     if (tab === "vendors") setScreen("vendors");
     if (tab === "users") setScreen("users");
   };
@@ -597,6 +600,9 @@ function AdminDashboardApp({
 
       case "activity-log":
         return <ActivityLogPage previewMode={previewMode} />;
+
+      case "booking-history":
+        return <BookingHistoryPage previewMode={previewMode} />;
 
       case "vendors":
         return (
@@ -812,6 +818,7 @@ function AdminDashboardApp({
     { tab: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { tab: "analytics", label: "Analytics", icon: <BarChart3 size={18} /> },
     { tab: "activity-log", label: "Activity Log", icon: <History size={18} /> },
+    { tab: "booking-history", label: "Booking History", icon: <CalendarDays size={18} /> },
     { tab: "vendors", label: "Vendors", icon: <Store size={18} /> },
     { tab: "users", label: "Users", icon: <Users size={18} /> },
   ];
@@ -820,6 +827,7 @@ function AdminDashboardApp({
     dashboard: "Admin Dashboard",
     analytics: "Analytics",
     "activity-log": "Activity Log",
+    "booking-history": "Booking History",
     vendors: "Monitor Vendors",
     users: "User Management",
     "vendor-detail": "Vendor Detail",
