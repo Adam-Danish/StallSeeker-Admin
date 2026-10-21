@@ -936,7 +936,7 @@ function AdminDashboardApp({
     <div className="flex h-full w-full" style={{ background: "#f8f7f3", fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* Sidebar */}
       <aside className="flex w-[68px] flex-shrink-0 flex-col sm:w-[208px] lg:w-[240px]" style={{ background: "#fff", borderRight: "1px solid #e9e5dd", height: "100%" }}>
-        <div className="flex h-[77px] min-h-[77px] items-center justify-start gap-[9px] border-b px-[14px]" style={{ borderColor: "#e9e5dd" }}>
+        <div className="flex h-16 min-h-16 items-center justify-start gap-[9px] border-b px-[14px]" style={{ borderColor: "#e9e5dd" }}>
           <img
             src="/app_logo.png"
             alt="StallSeeker logo"
