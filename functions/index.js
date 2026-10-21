@@ -227,6 +227,89 @@ exports.getAdminActivity = onCall(
   }
 );
 
+const BOOKING_HISTORY_FIELDS = [
+  "bookingId",
+  "bookingID",
+  "reference",
+  "transactionId",
+  "paymentId",
+  "customerName",
+  "userName",
+  "fullName",
+  "name",
+  "customerEmail",
+  "userEmail",
+  "userId",
+  "customerId",
+  "vendorName",
+  "stallName",
+  "businessName",
+  "vendorId",
+  "stallId",
+  "bookingStatus",
+  "paymentStatus",
+  "status",
+  "state",
+  "bookingDate",
+  "booking_date",
+  "appointmentDate",
+  "date",
+  "paymentDate",
+  "createdAt",
+  "created_at",
+  "createdOn",
+  "created_on",
+  "dateCreated",
+  "date_created",
+  "createdDate",
+  "created_date",
+  "timestamp",
+  "amount",
+  "totalAmount",
+  "bookingAmount",
+  "paymentAmount",
+  "total",
+  "price",
+  "currency",
+];
+
+exports.getBookingHistory = onCall(
+  { region: "us-central1" },
+  async (request) => {
+    await requireAdmin(request);
+
+    try {
+      const snapshot = await firestore.collection("bookingPayment").limit(500).get();
+      return {
+        bookings: snapshot.docs.map((booking) => {
+          const data = booking.data();
+          const visibleFields = {};
+          for (const field of BOOKING_HISTORY_FIELDS) {
+            const value = data[field];
+            if (value instanceof Timestamp) {
+              visibleFields[field] = value.toMillis();
+            } else if (value instanceof Date) {
+              visibleFields[field] = value.getTime();
+            } else if (
+              value === null ||
+              typeof value === "string" ||
+              typeof value === "number" ||
+              typeof value === "boolean"
+            ) {
+              visibleFields[field] = value;
+            }
+          }
+
+          return { id: booking.id, data: visibleFields };
+        }),
+      };
+    } catch (error) {
+      console.error("Unable to load booking history for an administrator:", error);
+      throw new HttpsError("internal", "Booking history could not be loaded.");
+    }
+  }
+);
+
 exports.adminActivity = onRequest(
   { region: "us-central1", invoker: "public", cors: true },
   async (request, response) => {

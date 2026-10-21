@@ -9,8 +9,7 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../../firebase";
+import { getBookingHistory } from "../bookingHistoryApi";
 import { getRecordCreatedAt } from "../dateUtils";
 
 interface BookingRecord {
@@ -159,29 +158,37 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
       return;
     }
 
+    let active = true;
     setLoading(true);
     setError(null);
-    const unsubscribe = onSnapshot(
-      collection(db, "bookingPayment"),
-      (snapshot) => {
-        const records = snapshot.docs.map((booking) =>
-          mapBooking(booking.id, booking.data() as Record<string, unknown>)
-        );
-        setBookings(records.sort((first, second) => (second.date?.getTime() ?? 0) - (first.date?.getTime() ?? 0)));
-        setLoading(false);
-      },
-      (loadError) => {
+    getBookingHistory()
+      .then((records) => {
+        if (!active) return;
+        const mappedRecords = records.map((booking) => mapBooking(booking.id, booking.data));
+        setBookings(mappedRecords.sort((first, second) => (second.date?.getTime() ?? 0) - (first.date?.getTime() ?? 0)));
+      })
+      .catch((loadError: unknown) => {
+        if (!active) return;
         console.error("Unable to load booking history:", loadError);
+        const code =
+          typeof loadError === "object" && loadError !== null && "code" in loadError
+            ? String(loadError.code)
+            : "";
         setError(
-          loadError.code === "permission-denied"
-            ? "Your admin account cannot read the bookingPayment collection. Check the Firestore security rules."
-            : "Booking history could not be loaded. Check your Firebase connection and try again."
+          code === "functions/permission-denied"
+            ? "Your Firebase profile does not have the admin role needed to view booking history."
+            : code === "functions/unauthenticated"
+              ? "Your admin session has expired. Sign in again to view booking history."
+              : "Booking history could not be loaded. Confirm the getBookingHistory Firebase Function is deployed, then try again."
         );
-        setLoading(false);
-      }
-    );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+    };
   }, [previewMode, reloadKey]);
 
   const statuses = useMemo(
@@ -198,7 +205,7 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
   const paidCount = bookings.filter((booking) => isPaidStatus(booking.status)).length;
   const pendingCount = bookings.filter((booking) => isPendingStatus(booking.status)).length;
   const summaryCards = [
-    { label: "Total bookings", value: bookings.length, icon: <CalendarDays size={18} />, color: "#d95316", background: "#fff0e8" },
+    { label: "Booking records loaded", value: bookings.length, icon: <CalendarDays size={18} />, color: "#d95316", background: "#fff0e8" },
     { label: "Pending payment", value: pendingCount, icon: <Clock3 size={18} />, color: "#9b5f26", background: "#fbf3e8" },
     { label: "Paid / completed", value: paidCount, icon: <CheckCircle2 size={18} />, color: "#22845b", background: "#eaf6ef" },
     { label: "Other statuses", value: bookings.length - paidCount - pendingCount, icon: <CreditCard size={18} />, color: "#785333", background: "#f4efe7" },
@@ -228,7 +235,7 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
         </p>
         <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Booking history</h2>
         <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
-          Review customer bookings and their payment status. Records update in real time.
+          Review booking records and their payment status.
         </p>
       </div>
 
@@ -288,7 +295,7 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
             <History size={17} color="#d95316" />
             <h3 className="text-sm font-semibold" style={{ color: "#2d241d" }}>Booking records</h3>
           </div>
-          <span className="text-xs" style={{ color: "#82766a" }}>{filteredBookings.length} shown</span>
+          <span className="text-xs" style={{ color: "#82766a" }}>Up to 500 records · {filteredBookings.length} shown</span>
         </div>
 
         {loading ? (
