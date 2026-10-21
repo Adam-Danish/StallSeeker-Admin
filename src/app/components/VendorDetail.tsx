@@ -76,6 +76,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
   const vendorName = vendor.stallName || vendor.name || 'Vendor';
   const vendorCategory = vendor.category || 'General';
   const vendorHours = vendor.openingHours || vendor.hours || '8:00 AM - 5:00 PM';
+  const vendorPhone = vendor.phoneNumber || '';
   const vendorLatitude = vendor.latitude ?? vendor.lat ?? 0;
   const vendorLongitude = vendor.longitude ?? vendor.lng ?? 0;
   const vendorStatus = Boolean(vendor.isOpen);
@@ -215,7 +216,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       </div>
 
       {/* Info Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
           <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>STATUS</p>
           <p style={{ color: vendorStatus ? '#10B981' : '#EF4444', fontWeight: 700, fontSize: '18px', margin: 0 }}>
@@ -229,6 +230,16 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
           <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>HOURS</p>
           <p style={{ color: '#2D1A0E', fontWeight: 700, fontSize: '18px', margin: 0 }}>{vendorHours}</p>
+        </div>
+        <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
+          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>PHONE</p>
+          {vendorPhone ? (
+            <a href={`tel:${vendorPhone}`} style={{ color: '#2D1A0E', fontWeight: 700, fontSize: '18px', textDecoration: 'none', overflowWrap: 'anywhere' }}>
+              {vendorPhone}
+            </a>
+          ) : (
+            <p style={{ color: '#9B7B5B', fontWeight: 500, fontSize: '14px', margin: 0 }}>Not provided</p>
+          )}
         </div>
       </div>
 

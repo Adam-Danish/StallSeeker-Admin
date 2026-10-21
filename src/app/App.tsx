@@ -11,6 +11,7 @@ import {
   Users,
   Search,
   Filter,
+  Phone,
   Trash2,
   UserX,
   UserCheck
@@ -41,6 +42,7 @@ interface UserAccount {
   id: string;
   name: string;
   email: string;
+  phoneNumber: string;
   collectionName: UserProfileCollection;
   createdAt: Date | null;
   role?: 'customer' | 'vendor' | 'admin';
@@ -55,6 +57,14 @@ function firstNonEmptyString(...values: unknown[]): string {
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return "No Email Provided";
+}
+
+function firstNonEmptyValue(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
 }
 
 function firstImageUrl(...values: unknown[]): string {
@@ -162,6 +172,17 @@ function AdminDashboardApp({
             data.imageURL,
             data.image
           ),
+          phoneNumber: firstNonEmptyValue(
+            data.phoneNumber,
+            data.phone_number,
+            data.phone,
+            data.mobileNumber,
+            data.mobile_number,
+            data.mobile,
+            data.contactNumber,
+            data.contact_number,
+            data.telephone
+          ),
           isAccountDisabled: Boolean(data.isAccountDisabled),
           createdAt: getRecordCreatedAt(data),
         } as Vendor & { isAccountDisabled?: boolean };
@@ -238,6 +259,7 @@ function AdminDashboardApp({
         return {
           ...v,
           email: resolvedEmail,
+          phoneNumber: v.phoneNumber || matchingUser?.phoneNumber || "",
         };
       });
 
@@ -314,6 +336,17 @@ function AdminDashboardApp({
               data.contact_email,
               data.mail
             ),
+            phoneNumber: firstNonEmptyValue(
+              data.phoneNumber,
+              data.phone_number,
+              data.phone,
+              data.mobileNumber,
+              data.mobile_number,
+              data.mobile,
+              data.contactNumber,
+              data.contact_number,
+              data.telephone
+            ),
             role: (roleStr === "vendor" || roleStr === "admin") ? (roleStr as 'vendor' | 'admin') : "customer",
             isAccountDisabled: Boolean(data.isAccountDisabled),
           };
@@ -351,6 +384,18 @@ function AdminDashboardApp({
               data.owner_email,
               data.userEmail,
               data.user_email,
+              data.contact
+            ),
+            phoneNumber: firstNonEmptyValue(
+              data.phoneNumber,
+              data.phone_number,
+              data.phone,
+              data.mobileNumber,
+              data.mobile_number,
+              data.mobile,
+              data.contactNumber,
+              data.contact_number,
+              data.telephone,
               data.contact
             ),
             role: (roleStr === "customer" || roleStr === "admin") ? (roleStr as 'customer' | 'admin') : "vendor",
@@ -748,6 +793,7 @@ function AdminDashboardApp({
                   <tr style={{ background: "#FDF0E8", borderBottom: "1px solid #EDD9C6", color: "#7A5C2E", fontSize: "13px" }}>
                     <th style={{ padding: "12px 16px" }}>Name</th>
                     <th style={{ padding: "12px 16px" }}>Email</th>
+                    <th style={{ padding: "12px 16px" }}>Phone</th>
                     <th style={{ padding: "12px 16px" }}>Role</th>
                     <th style={{ padding: "12px 16px" }}>Status</th>
                     <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
@@ -756,7 +802,7 @@ function AdminDashboardApp({
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ padding: "24px", textAlign: "center", color: "#C7A98A" }}>
+                      <td colSpan={6} style={{ padding: "24px", textAlign: "center", color: "#C7A98A" }}>
                         {userTypeFilter === "all" ? "No users found." : `No ${userTypeFilter} found.`}
                       </td>
                     </tr>
@@ -765,6 +811,14 @@ function AdminDashboardApp({
                       <tr key={u.id} style={{ borderBottom: "1px solid #EDD9C6", fontSize: "14px" }}>
                         <td style={{ padding: "12px 16px", fontWeight: 600, color: "#2D1A0E" }}>{u.name}</td>
                         <td style={{ padding: "12px 16px", color: "#7A5C2E" }}>{u.email}</td>
+                        <td style={{ padding: "12px 16px", color: "#7A5C2E", whiteSpace: "nowrap" }}>
+                          {u.phoneNumber ? (
+                            <a href={`tel:${u.phoneNumber}`} style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "inherit", textDecoration: "none" }}>
+                              <Phone size={14} aria-hidden="true" />
+                              {u.phoneNumber}
+                            </a>
+                          ) : "—"}
+                        </td>
                         <td style={{ padding: "12px 16px" }}>
                           <span style={{
                             padding: "4px 8px", borderRadius: "6px", fontSize: "12px", fontWeight: 600,

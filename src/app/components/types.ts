@@ -14,6 +14,7 @@ export interface Vendor {
   lng?: number;
   imageUrl?: string;
   profileImageUrl?: string;
+  phoneNumber?: string;
   isAccountDisabled?: boolean;
   createdAt?: Date | null;
 }
