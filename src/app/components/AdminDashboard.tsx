@@ -17,7 +17,6 @@ import { DashboardCharts, type DashboardPeriod, type DashboardVendor } from "./D
 interface Props {
   onMonitorVendors: () => void;
   onManageUsers: () => void;
-  previewMode?: boolean;
 }
 
 interface DashboardUser {
@@ -45,7 +44,7 @@ const cardStyle = {
   boxShadow: "0 8px 24px rgba(45, 26, 14, 0.045)",
 };
 
-export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = false }: Props) {
+export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
   const [vendors, setVendors] = useState<DashboardVendor[]>([]);
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [vendorStatus, setVendorStatus] = useState<ListenerStatus>("connecting");
@@ -57,8 +56,6 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
   const attemptedDateLookups = useRef(new Set<string>());
 
   useEffect(() => {
-    if (previewMode) return;
-
     const updateLastSynced = () => setLastSynced(new Date());
     const unsubscribeVendors = onSnapshot(
       collection(db, "vendors"),
@@ -114,7 +111,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
       unsubscribeVendors();
       unsubscribeUsers();
     };
-  }, [previewMode]);
+  }, []);
 
   const incompleteVendors = useMemo(
     () => vendors.filter((vendor) => !vendor.name || !vendor.category || !vendor.openingHours),
@@ -130,8 +127,6 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
   );
 
   useEffect(() => {
-    if (previewMode) return;
-
     const idsToLookUp = vendors
       .filter((vendor) =>
         !vendor.createdAt &&
@@ -157,14 +152,12 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
         setRegistrationDateError(null);
       } catch (error) {
         console.error("Unable to load vendor registration dates from Firebase Authentication:", error);
-        setRegistrationDateError(
-          error instanceof Error ? error.message : "Vendor registration dates could not be loaded."
-        );
+        setRegistrationDateError("Vendor registration dates could not be loaded. Please try again later.");
       }
     };
 
     void loadCreationDates();
-  }, [authCreatedAtByUid, previewMode, vendorAccountDates, vendors]);
+  }, [authCreatedAtByUid, vendorAccountDates, vendors]);
 
   const vendorsWithRegistrationDates = useMemo(
     () => vendors.map((vendor) => ({
@@ -213,9 +206,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
       : vendorStatus === "connected" && userStatus === "connected"
         ? "connected"
         : "connecting";
-  const statusText = previewMode
-    ? "Local preview — live data disabled"
-    : systemStatus === "connected"
+  const statusText = systemStatus === "connected"
       ? "Live data connected"
       : systemStatus === "error"
         ? "Some data could not be loaded"
@@ -418,9 +409,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
               {statusText}
             </p>
             <p className="mt-1 text-xs leading-relaxed" style={{ color: "#82766a" }}>
-              {previewMode
-                ? "Firebase data is not loaded in local preview mode."
-                : <>Vendors: {vendorStatus} · Users: {userStatus}{lastSynced ? ` · Last data received ${formatActivityTime(lastSynced)}` : ""}</>}
+              Vendors: {vendorStatus} · Users: {userStatus}{lastSynced ? ` · Last updated ${formatActivityTime(lastSynced)}` : ""}
             </p>
           </div>
         </div>

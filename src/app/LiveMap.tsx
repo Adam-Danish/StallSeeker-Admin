@@ -45,19 +45,15 @@ const RecenterMap = ({ markers }: { markers: [number, number][] }) => {
 
 export const LiveVendorMap: React.FC<{
   onVendorSelect?: (id: string) => void;
-  previewMode?: boolean;
   fullSize?: boolean;
 }> = ({
   onVendorSelect,
-  previewMode = false,
   fullSize = false,
 }) => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [activeCount, setActiveCount] = useState<number>(0);
 
   useEffect(() => {
-    if (previewMode) return;
-
     // 📡 Live Firebase Snapshot Listener
     const unsubscribe = onSnapshot(collection(db, 'vendors'), (snapshot) => {
       let active = 0;
@@ -87,7 +83,7 @@ export const LiveVendorMap: React.FC<{
     });
 
     return () => unsubscribe();
-  }, [previewMode]);
+  }, []);
 
   const markerPositions: [number, number][] = vendors.map((v) => [v.lat, v.lng]);
 
@@ -104,23 +100,17 @@ export const LiveVendorMap: React.FC<{
     }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--foreground)' }}>{previewMode ? 'Vendor locations' : 'Live vendor locations'}</h3>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--foreground)' }}>Live vendor locations</h3>
           <p style={{ margin: 0, fontSize: '13px', color: '#2D1A0E' }}>
-            {previewMode ? 'Location data is unavailable in local preview mode' : 'Real-time geographic status of active stalls'}
+            Real-time geographic status of active stalls
           </p>
         </div>
-        {!previewMode && (
           <span style={{ background: '#E8F5E9', color: '#2E7D32', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
             ● {activeCount} Active Stalls
           </span>
-        )}
       </div>
 
-      {previewMode ? (
-        <div className="flex h-[200px] items-center justify-center rounded-lg text-sm" style={{ background: "#f8f7f3", color: "#82766a" }}>
-          Live map disabled in local preview mode.
-        </div>
-      ) : <div style={{ height: fullSize ? '100%' : '350px', minHeight: fullSize ? '420px' : undefined, flex: fullSize ? 1 : undefined, width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
+      <div style={{ height: fullSize ? '100%' : '350px', minHeight: fullSize ? '420px' : undefined, flex: fullSize ? 1 : undefined, width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
         <MapContainer center={[2.9369, 101.7914]} zoom={13} style={{ height: '100%', width: '100%' }}>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -146,7 +136,7 @@ export const LiveVendorMap: React.FC<{
             </Marker>
           ))}
         </MapContainer>
-      </div>}
+      </div>
     </div>
   );
 };

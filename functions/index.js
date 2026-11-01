@@ -2,6 +2,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { HttpsError, onCall, onRequest } = require("firebase-functions/v2/https");
+const { readHistoryPage } = require("./historyPagination");
 
 initializeApp();
 
@@ -199,6 +200,7 @@ exports.getAdminActivity = onCall(
   { region: "us-central1" },
   async (request) => {
     await requireAdmin(request);
+    if (request.data?.paginated === true) return listActivityPage(request.data);
     const requestedLimit = Number(request.data?.limit ?? 100);
     const limit = Number.isInteger(requestedLimit)
       ? Math.min(Math.max(requestedLimit, 1), 200)
@@ -226,6 +228,28 @@ exports.getAdminActivity = onCall(
     };
   }
 );
+
+async function listActivityPage(options) {
+  const page = await readHistoryPage([firestore.collection("adminActivity")], options);
+  return {
+    paginationVersion: 1,
+    nextCursor: page.nextCursor,
+    entries: page.docs.map((activity) => {
+      const data = activity.data();
+      return {
+        id: activity.id,
+        action: data.action,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        entityName: data.entityName,
+        summary: data.summary,
+        actorName: data.actor?.name ?? "Administrator",
+        actorEmail: data.actor?.email ?? "",
+        createdAt: data.createdAt?.toMillis?.() ?? null,
+      };
+    }),
+  };
+}
 
 const BOOKING_HISTORY_FIELDS = [
   "bookingId",
@@ -319,6 +343,20 @@ exports.getBookingHistory = onCall(
     await requireAdmin(request);
 
     try {
+      if (request.data?.paginated === true) {
+        const page = await readHistoryPage([
+          firestore.collection("bookingPayment"),
+          firestore.collection("bookings"),
+        ], request.data);
+        return {
+          paginationVersion: 1,
+          nextCursor: page.nextCursor,
+          bookings: page.docs.map((booking) => ({
+            id: booking.id,
+            data: serializeBookingData(booking.data()),
+          })),
+        };
+      }
       const [bookingsSnapshot, legacySnapshot] = await Promise.all([
         firestore.collection("bookings").limit(500).get(),
         firestore.collection("bookingPayment").limit(500).get(),
@@ -339,6 +377,7 @@ exports.getBookingHistory = onCall(
       };
     } catch (error) {
       console.error("Unable to load booking history for an administrator:", error);
+      if (error.code === "invalid-argument") throw new HttpsError("invalid-argument", error.message);
       throw new HttpsError("internal", "Booking history could not be loaded.");
     }
   }
@@ -399,6 +438,10 @@ exports.adminActivity = onRequest(
     try {
       const operation = request.body?.operation;
       if (operation === "list") {
+        if (request.body?.paginated === true) {
+          response.status(200).json(await listActivityPage(request.body));
+          return;
+        }
         const requestedLimit = Number(request.body?.limit ?? 100);
         const limit = Number.isInteger(requestedLimit)
           ? Math.min(Math.max(requestedLimit, 1), 200)

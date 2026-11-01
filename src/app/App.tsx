@@ -23,6 +23,8 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { getRecordCreatedAt } from "./dateUtils";
 import { Button } from "./components/ui/button";
+import { RecordPagination, RecordSortSelect } from "./components/RecordPagination";
+import { sortRecords, useRecordPagination, type RecordSort } from "./useRecordPagination";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./components/ui/sheet";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { AnalyticsPage } from "./components/AnalyticsPage";
@@ -78,13 +80,16 @@ function firstImageUrl(...values: unknown[]): string {
   return "";
 }
 
-function AdminDashboardApp({
-  previewMode = false,
-  onPreviewSignOut,
-}: {
-  previewMode?: boolean;
-  onPreviewSignOut?: () => void;
-}) {
+function getAccountActionErrorMessage(error: unknown): string {
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  if (code === "unauthenticated") return "Your session has expired. Please sign in again.";
+  if (code === "permission-denied") return "Your account does not have permission to manage users.";
+  if (code === "failed-precondition") return "You cannot disable or delete your own administrator account.";
+  if (code === "not-found" || code === "auth-user-not-found") return "This account is unavailable. Please refresh the user list.";
+  return "Unable to complete this account change. Please refresh the user list and try again.";
+}
+
+function AdminDashboardApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
@@ -100,11 +105,6 @@ function AdminDashboardApp({
   }, [darkMode]);
 
   const handleSignOut = async () => {
-    if (previewMode) {
-      onPreviewSignOut?.();
-      return;
-    }
-
     try {
       await signOut(auth);
     } catch (error) {
@@ -129,6 +129,7 @@ function AdminDashboardApp({
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSort, setUserSort] = useState<RecordSort>("newest");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [userTypeFilter, setUserTypeFilter] = useState<"all" | "customers" | "vendors" | "admins">("all");
 
@@ -137,8 +138,6 @@ function AdminDashboardApp({
 
   // 1. Fetch Vendors Real-time
   useEffect(() => {
-    if (previewMode) return;
-
     const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
       const docs: Vendor[] = snapshot.docs.map((d) => {
         const data = d.data();
@@ -196,12 +195,10 @@ function AdminDashboardApp({
       setVendorsList(docs);
     });
     return () => unsubscribe();
-  }, [previewMode]);
+  }, []);
 
   // 2. Fetch both "users" AND "vendors" collections and merge/cross-reference email
   useEffect(() => {
-    if (previewMode) return;
-
     let customerAccounts: UserAccount[] = [];
     let vendorAccounts: UserAccount[] = [];
     const authEmails = new Map<string, string>();
@@ -303,11 +300,7 @@ function AdminDashboardApp({
         .catch((error: unknown) => {
           console.error("Error retrieving account emails from Firebase Authentication:", error);
           if (isActive) {
-            setEmailLookupError(
-              error instanceof Error
-                ? error.message
-                : "Account emails could not be fetched. Check admin access and Cloud Functions deployment."
-            );
+            setEmailLookupError("Some account email addresses could not be loaded. Please try again later.");
           }
         })
         .finally(() => {
@@ -418,10 +411,10 @@ function AdminDashboardApp({
       unsubUsers();
       unsubVendors();
     };
-  }, [previewMode]);
+  }, []);
 
   useEffect(() => {
-    if (previewMode || screen !== "analytics") return;
+    if (screen !== "analytics") return;
 
     const idsToLookUp = vendorsList
       .filter((vendor) => {
@@ -454,9 +447,7 @@ function AdminDashboardApp({
       } catch (error) {
         console.error("Unable to load vendor registration dates for analytics:", error);
         if (isActive) {
-          setAnalyticsDateLookupError(
-            error instanceof Error ? error.message : "Vendor registration dates could not be loaded."
-          );
+          setAnalyticsDateLookupError("Vendor registration dates could not be loaded. Please try again later.");
         }
       }
     };
@@ -465,7 +456,7 @@ function AdminDashboardApp({
     return () => {
       isActive = false;
     };
-  }, [authCreatedAtByUid, previewMode, screen, usersList, vendorsList]);
+  }, [authCreatedAtByUid, screen, usersList, vendorsList]);
 
   const navigate = (s: Screen, tab?: NavTab) => {
     setScreen(s);
@@ -490,7 +481,7 @@ function AdminDashboardApp({
       setActivityNotice(null);
     } catch (error) {
       console.error("The admin change succeeded, but its activity could not be recorded:", error);
-      setActivityNotice("The change was saved, but its activity log entry could not be recorded. Check Cloud Functions and try again after resolving the issue.");
+      setActivityNotice("The change was saved, but its activity log entry could not be recorded. Please contact your administrator.");
     }
   };
 
@@ -559,9 +550,9 @@ function AdminDashboardApp({
 
   // Update Firebase Authentication login access and mirror the status on the profile.
   const handleToggleDisableUser = async (id: string, role?: string, currentStatus?: boolean) => {
-    if (previewMode || activeUserActionId) return;
+    if (activeUserActionId) return;
     const actionName = currentStatus ? "re-enable" : "disable";
-    if (!window.confirm(`Are you sure you want to ${actionName} Firebase login access for this account?`)) return;
+    if (!window.confirm(`Are you sure you want to ${actionName} sign-in access for this account?`)) return;
 
     const account = usersList.find((user) => user.id === id);
     const collectionName = account?.collectionName ?? (role === "vendor" ? "vendors" : "users");
@@ -578,7 +569,7 @@ function AdminDashboardApp({
       });
     } catch (error) {
       console.error("Unable to change Firebase login access:", error);
-      setUserActionError(error instanceof Error ? error.message : "Could not change this account's login access.");
+      setUserActionError(getAccountActionErrorMessage(error));
     } finally {
       setActiveUserActionId(null);
     }
@@ -586,8 +577,8 @@ function AdminDashboardApp({
 
   // Delete the selected profile and its matching Firebase Authentication account.
   const handleDeleteUser = async (id: string, role?: string) => {
-    if (previewMode || activeUserActionId) return;
-    if (!window.confirm("Permanently delete this account from Firebase Authentication and its selected Firestore profile? This cannot be undone.")) return;
+    if (activeUserActionId) return;
+    if (!window.confirm("Permanently delete this account and its profile? This cannot be undone.")) return;
 
     const account = usersList.find((user) => user.id === id);
     const collectionName = account?.collectionName ?? (role === "vendor" ? "vendors" : "users");
@@ -601,11 +592,11 @@ function AdminDashboardApp({
         entityType: role === "vendor" ? "vendor" : "user",
         entityId: id,
         entityName: account?.name || "Account",
-        summary: `Deleted ${role ?? "user"} Firebase Authentication account and Firestore profile.`,
+        summary: `Deleted ${role ?? "user"} account and profile.`,
       });
     } catch (error) {
       console.error("Unable to delete Firebase account:", error);
-      setUserActionError(error instanceof Error ? error.message : "Could not delete this account.");
+      setUserActionError(getAccountActionErrorMessage(error));
     } finally {
       setActiveUserActionId(null);
     }
@@ -629,7 +620,7 @@ function AdminDashboardApp({
   });
 
   // User Filter & Search Processing
-  const filteredUsers = usersList.filter((u) => {
+  const filteredUsers = sortRecords(usersList.filter((u) => {
     const matchesRole = userTypeFilter === "all"
       ? true
       : u.role === (
@@ -642,7 +633,8 @@ function AdminDashboardApp({
     const matchesSearch = u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                           u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
     return matchesRole && matchesSearch;
-  });
+  }), userSort, (user) => ({ id: user.id, name: user.name, date: user.createdAt }));
+  const userPagination = useRecordPagination(filteredUsers, JSON.stringify([userSearchQuery, userTypeFilter, userSort]));
   
   const customerCount = usersList.filter(u => u.role === "customer").length;
   const vendorCount = usersList.filter(u => u.role === "vendor").length;
@@ -674,9 +666,8 @@ function AdminDashboardApp({
             <AdminDashboard
               onMonitorVendors={() => navigate("vendors", "vendors")}
               onManageUsers={() => navigate("users", "users")}
-              previewMode={previewMode}
             />
-            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} previewMode={previewMode} />
+            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} />
           </div>
         );
 
@@ -695,15 +686,15 @@ function AdminDashboardApp({
       case "map":
         return (
           <div className="h-full min-h-[520px]">
-            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} previewMode={previewMode} fullSize />
+            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} fullSize />
           </div>
         );
 
       case "activity-log":
-        return <ActivityLogPage previewMode={previewMode} />;
+        return <ActivityLogPage />;
 
       case "booking-history":
-        return <BookingHistoryPage previewMode={previewMode} />;
+        return <BookingHistoryPage />;
 
       case "vendors":
         return (
@@ -737,9 +728,9 @@ function AdminDashboardApp({
               onBack={() => navigate("dashboard", "dashboard")}
               onVendorDetail={handleVendorDetail}
               vendors={filteredVendors}
+              filterKey={JSON.stringify([searchQuery, categoryFilter])}
               onEditListing={(v: Vendor) => setEditingVendor(v)}
               onDeleteListing={handleDeleteListing}
-              previewMode={previewMode}
             />
           </div>
         );
@@ -749,6 +740,7 @@ function AdminDashboardApp({
           <div className="admin-page">
             <div className="admin-toolbar" style={{ justifyContent: "space-between", marginBottom: "16px" }}>
               <h2 style={{ fontSize: "20px", color: "#2D1A0E", fontWeight: "bold" }}>User management</h2>
+              <RecordSortSelect label="users" value={userSort} onChange={setUserSort} />
               <div style={{ display: "flex", alignItems: "center", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px", width: "260px" }}>
                 <Search size={16} color="#C7A98A" />
                 <input
@@ -855,7 +847,7 @@ function AdminDashboardApp({
                       </td>
                     </tr>
                   ) : (
-                    filteredUsers.map((u) => (
+                    userPagination.items.map((u) => (
                       <tr key={u.id} style={{ borderBottom: "1px solid #EDD9C6", fontSize: "14px" }}>
                         <td style={{ padding: "12px 16px", fontWeight: 600, color: "#2D1A0E" }}>{u.name}</td>
                         <td style={{ padding: "12px 16px", color: "#7A5C2E" }}>{u.email}</td>
@@ -890,18 +882,18 @@ function AdminDashboardApp({
                             <button
                               title={u.isAccountDisabled ? "Re-enable Account" : "Disable Login Access"}
                               aria-label={u.isAccountDisabled ? `Re-enable login for ${u.name}` : `Disable login for ${u.name}`}
-                              disabled={previewMode || activeUserActionId !== null}
+                              disabled={activeUserActionId !== null}
                               onClick={() => handleToggleDisableUser(u.id, u.role, u.isAccountDisabled)}
-                              style={{ background: "none", border: "none", cursor: previewMode || activeUserActionId !== null ? "not-allowed" : "pointer", opacity: activeUserActionId === u.id ? 0.5 : 1 }}
+                              style={{ background: "none", border: "none", cursor: activeUserActionId !== null ? "not-allowed" : "pointer", opacity: activeUserActionId === u.id ? 0.5 : 1 }}
                             >
                               {activeUserActionId === u.id ? <span aria-label="Saving account change">…</span> : u.isAccountDisabled ? <UserCheck size={16} color="#2E7D32" /> : <UserX size={16} color="#D97706" />}
                             </button>
                             <button
-                              title="Delete Firebase account"
+                              title="Delete account"
                               aria-label={`Delete ${u.name}`}
-                              disabled={previewMode || activeUserActionId !== null}
+                              disabled={activeUserActionId !== null}
                               onClick={() => handleDeleteUser(u.id, u.role)}
-                              style={{ background: "none", border: "none", cursor: previewMode || activeUserActionId !== null ? "not-allowed" : "pointer", opacity: activeUserActionId === u.id ? 0.5 : 1 }}
+                              style={{ background: "none", border: "none", cursor: activeUserActionId !== null ? "not-allowed" : "pointer", opacity: activeUserActionId === u.id ? 0.5 : 1 }}
                             >
                               <Trash2 size={16} color="#EF4444" />
                             </button>
@@ -913,6 +905,7 @@ function AdminDashboardApp({
                 </tbody>
               </table>
             </div>
+            <RecordPagination label="users" {...userPagination} />
           </div>
         );
 
@@ -1061,11 +1054,6 @@ function AdminDashboardApp({
         </header>
 
         <main className="flex-1 min-w-0 overflow-y-auto" style={{ background: "#f8f7f3" }}>
-          {previewMode && (
-            <p role="status" className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm sm:mx-6 lg:mx-8" style={{ color: "#785333", background: "#fbf3e8", border: "1px solid #e9d7b7" }}>
-              Local UI preview only. Firebase data, activity logs, and account changes are unavailable.
-            </p>
-          )}
           {signOutError && (
             <p role="alert" className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm sm:mx-6 lg:mx-8" style={{ color: "#8f3b32", background: "#fff0ed", border: "1px solid #f2d1cb" }}>
               {signOutError}
@@ -1129,7 +1117,7 @@ function AdminDashboardApp({
   );
 }
 
-type AuthGateState = "loading" | "signed-out" | "checking-admin" | "admin" | "preview" | "not-admin" | "error";
+type AuthGateState = "loading" | "signed-out" | "checking-admin" | "admin" | "not-admin" | "error";
 
 function AuthenticatedAdminApp() {
   const [authGate, setAuthGate] = useState<AuthGateState>("loading");
@@ -1142,11 +1130,6 @@ function AuthenticatedAdminApp() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       const currentVerification = ++verificationId;
       setAuthGateError(null);
-
-      if (import.meta.env.DEV && window.sessionStorage.getItem("stallseeker-admin-preview") === "true") {
-        setAuthGate("preview");
-        return;
-      }
 
       if (!user) {
         setAuthGate("signed-out");
@@ -1164,7 +1147,7 @@ function AuthenticatedAdminApp() {
         .catch((error: unknown) => {
           console.error("Unable to verify the signed-in account's admin role:", error);
           if (!active || currentVerification !== verificationId) return;
-          setAuthGateError("Could not verify admin access. Check Firestore access and the role on your users profile.");
+          setAuthGateError("Unable to verify administrator access. Please sign in again or contact your administrator.");
           setAuthGate("error");
         });
     });
@@ -1190,27 +1173,9 @@ function AuthenticatedAdminApp() {
   }
 
   if (authGate === "signed-out") {
-    return (
-      <AdminLogin
-        onPreviewLogin={import.meta.env.DEV ? () => {
-          window.sessionStorage.setItem("stallseeker-admin-preview", "true");
-          setAuthGate("preview");
-        } : undefined}
-      />
-    );
+    return <AdminLogin />;
   }
   if (authGate === "admin") return <AdminDashboardApp />;
-  if (authGate === "preview") {
-    return (
-      <AdminDashboardApp
-        previewMode
-        onPreviewSignOut={() => {
-          window.sessionStorage.removeItem("stallseeker-admin-preview");
-          setAuthGate("signed-out");
-        }}
-      />
-    );
-  }
 
   const handleAccessSignOut = async () => {
     try {
@@ -1240,7 +1205,7 @@ function AuthenticatedAdminApp() {
           {authGate === "not-admin" ? "Administrator access required" : "Could not verify access"}
         </h1>
         <p role={authGateError ? "alert" : undefined} className="mt-2 text-sm" style={{ color: authGateError ? "#8f3b32" : "#82766a" }}>
-          {authGateError ?? "This Firebase account does not have the admin role in its Firestore users profile."}
+          {authGateError ?? "This account does not have administrator access. Sign in with an authorized account."}
         </p>
         <button
           type="button"

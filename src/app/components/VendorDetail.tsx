@@ -134,7 +134,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       },
       (error) => {
         console.error('Unable to load vendor reviews:', error);
-        setReviewError('Reviews could not be loaded. Check your Firebase permissions and try again.');
+        setReviewError('Reviews could not be loaded. Please try again later.');
       }
     );
 

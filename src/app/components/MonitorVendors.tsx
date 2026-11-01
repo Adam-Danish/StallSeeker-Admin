@@ -3,6 +3,9 @@ import { Store, AlertTriangle, MapPin, ChevronRight, CheckCircle, Search, Phone 
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase";
 import type { Vendor } from "./types";
+import { getRecordCreatedAt } from "../dateUtils";
+import { RecordPagination, RecordSortSelect } from "./RecordPagination";
+import { sortRecords, useRecordPagination, type RecordSort } from "../useRecordPagination";
 
 type Filter = "All" | "Open" | "Closed";
 
@@ -12,7 +15,7 @@ interface Props {
   vendors?: Vendor[];
   onEditListing?: (vendor: Vendor) => void;
   onDeleteListing?: (id: string) => Promise<void>;
-  previewMode?: boolean;
+  filterKey?: string;
 }
 
 function firstNonEmptyValue(...values: unknown[]): string {
@@ -63,15 +66,16 @@ export function MonitorVendors({
   vendors: initialVendors,
   onEditListing,
   onDeleteListing,
-  previewMode = false,
+  filterKey = "",
 }: Props) {
   const [liveVendors, setLiveVendors] = useState<Vendor[]>([]);
   const vendors = initialVendors ?? liveVendors;
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<RecordSort>("newest");
 
   useEffect(() => {
-    if (previewMode || initialVendors !== undefined) return;
+    if (initialVendors !== undefined) return;
 
     const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
       const v = snapshot.docs.map((doc) => {
@@ -89,6 +93,7 @@ export function MonitorVendors({
           openingHours: data.openingHours || data.hours || "",
           hours: data.hours || data.openingHours || "",
           isOpen: Boolean(data.isOpen),
+          createdAt: getRecordCreatedAt(data),
           latitude: Number.isFinite(latitude) ? latitude : 0,
           longitude: Number.isFinite(longitude) ? longitude : 0,
           lat: Number.isFinite(latitude) ? latitude : 0,
@@ -129,9 +134,9 @@ export function MonitorVendors({
     });
 
     return () => unsubscribe();
-  }, [initialVendors, previewMode]);
+  }, [initialVendors]);
 
-  const filtered = vendors.filter((v) => {
+  const filtered = sortRecords(vendors.filter((v) => {
     const matchFilter =
       filter === "All" ||
       (filter === "Open" && v.isOpen) ||
@@ -142,7 +147,10 @@ export function MonitorVendors({
       (v.category || "").toLowerCase().includes(search.toLowerCase()) ||
       (v.phoneNumber || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
-  });
+  }), sort, (vendor) => ({
+    id: vendor.id ?? vendor.vendorId ?? "", name: vendor.stallName || vendor.name || "Vendor", date: vendor.createdAt,
+  }));
+  const pagination = useRecordPagination(filtered, JSON.stringify([filter, search, sort, filterKey]));
 
   const openCount = vendors.filter(v => v.isOpen).length;
   const closedCount = vendors.length - openCount;
@@ -153,7 +161,7 @@ export function MonitorVendors({
       <div className="mb-6">
         <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#2D1A0E" }}>Monitor vendors</h2>
         <p style={{ fontSize: "13px", color: "#9B7B5B", marginTop: "2px" }}>
-          {previewMode ? "Vendor records are unavailable in local preview mode" : "Track vendor activity and stall status"}
+          Track vendor activity and stall status
         </p>
       </div>
 
@@ -202,11 +210,12 @@ export function MonitorVendors({
             style={{ border: "none", outline: "none", background: "transparent", fontSize: "13px", color: "#2D1A0E", width: "100%" }}
           />
         </div>
+        <RecordSortSelect label="vendors" value={sort} onChange={setSort} />
       </div>
 
       {/* Vendor Cards Grid */}
       <div className="admin-vendor-grid">
-        {filtered.map((vendor) => (
+        {pagination.items.map((vendor) => (
           <div
             key={vendor.vendorId}
             className="rounded-2xl p-5"
@@ -220,7 +229,7 @@ export function MonitorVendors({
                   <div className="flex items-center gap-1 mt-0.5">
                     <MapPin size={11} color="#C7A98A" />
                     <span style={{ fontSize: "11px", color: "#C7A98A" }}>
-                      {vendor.latitude.toFixed(4)}, {vendor.longitude.toFixed(4)}
+                      {(vendor.latitude ?? vendor.lat)?.toFixed(4) ?? "—"}, {(vendor.longitude ?? vendor.lng)?.toFixed(4) ?? "—"}
                     </span>
                   </div>
                 </div>
@@ -274,6 +283,8 @@ export function MonitorVendors({
           </div>
         ))}
       </div>
+      {!filtered.length && <p className="py-8 text-center text-sm text-muted-foreground">No vendors match these filters.</p>}
+      <RecordPagination label="vendors" {...pagination} />
     </div>
   );
 }

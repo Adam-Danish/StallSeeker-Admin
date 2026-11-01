@@ -1,5 +1,6 @@
 import { auth } from "../firebase";
 import type { ActivityEvent } from "./components/ActivityLogPage";
+import { loadHistoryPages } from "./historyPagination";
 
 export interface ActivityEntry extends ActivityEvent {
   id: string;
@@ -13,6 +14,8 @@ interface ActivityResponse {
   success?: boolean;
   code?: string;
   error?: string;
+  paginationVersion?: number;
+  nextCursor?: string | null;
 }
 
 export class ActivityServiceError extends Error {
@@ -26,7 +29,8 @@ export class ActivityServiceError extends Error {
 }
 
 async function requestActivity(
-  body: { operation: "list"; limit: number } | { operation: "record"; event: ActivityEvent }
+  body: { operation: "list"; limit: number; paginated: true; cursor: string | null } | { operation: "record"; event: ActivityEvent },
+  signal?: AbortSignal
 ): Promise<ActivityResponse> {
   const currentUser = auth.currentUser;
   if (!currentUser) {
@@ -46,6 +50,7 @@ async function requestActivity(
       Authorization: `Bearer ${idToken}`,
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   let result: ActivityResponse;
@@ -65,12 +70,19 @@ async function requestActivity(
   return result;
 }
 
-export async function getAdminActivity(limit: number): Promise<ActivityEntry[]> {
-  const result = await requestActivity({ operation: "list", limit });
-  if (!Array.isArray(result.entries)) {
-    throw new Error("Activity service returned an invalid entries list.");
-  }
-  return result.entries;
+export async function getAdminActivity(options: {
+  signal?: AbortSignal; onProgress?: (count: number) => void;
+} = {}): Promise<ActivityEntry[]> {
+  return loadHistoryPages(async (cursor) => {
+    const result = await requestActivity({ operation: "list", limit: 200, paginated: true, cursor }, options.signal);
+    if (result.paginationVersion !== 1 || result.nextCursor === undefined) {
+      throw new ActivityServiceError("deployment-required", "Update the activity history service to enable access to all records.");
+    }
+    if (!Array.isArray(result.entries)) {
+      throw new Error("Activity service returned an invalid entries list.");
+    }
+    return { items: result.entries, nextCursor: result.nextCursor };
+  }, options);
 }
 
 export async function recordAdminActivity(event: ActivityEvent): Promise<void> {

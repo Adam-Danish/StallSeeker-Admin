@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { getBookingHistory } from "../bookingHistoryApi";
 import { getRecordCreatedAt } from "../dateUtils";
+import { RecordPagination, RecordSortSelect } from "./RecordPagination";
+import { sortRecords, useRecordPagination, type RecordSort } from "../useRecordPagination";
 
 interface BookingRecord {
   id: string;
@@ -24,10 +26,6 @@ interface BookingRecord {
   date: Date | null;
   amount: string;
   searchText: string;
-}
-
-interface BookingHistoryPageProps {
-  previewMode?: boolean;
 }
 
 const cardStyle = {
@@ -173,28 +171,27 @@ function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
   };
 }
 
-export function BookingHistoryPage({ previewMode = false }: BookingHistoryPageProps) {
+export function BookingHistoryPage() {
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [loading, setLoading] = useState(!previewMode);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [sort, setSort] = useState<RecordSort>("newest");
+  const [loadedCount, setLoadedCount] = useState(0);
 
   useEffect(() => {
-    if (previewMode) {
-      setLoading(false);
-      return;
-    }
-
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
-    getBookingHistory()
+    setLoadedCount(0);
+    getBookingHistory({ signal: controller.signal, onProgress: (count) => { if (active) setLoadedCount(count); } })
       .then((records) => {
         if (!active) return;
         const mappedRecords = records.map((booking) => mapBooking(booking.id, booking.data));
-        setBookings(mappedRecords.sort((first, second) => (second.date?.getTime() ?? 0) - (first.date?.getTime() ?? 0)));
+        setBookings(mappedRecords);
       })
       .catch((loadError: unknown) => {
         if (!active) return;
@@ -205,10 +202,10 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
             : "";
         setError(
           code === "functions/permission-denied"
-            ? "Your Firebase profile does not have the admin role needed to view booking history."
+            ? "Your account does not have permission to view booking history."
             : code === "functions/unauthenticated"
               ? "Your admin session has expired. Sign in again to view booking history."
-              : "Booking history could not be loaded. Confirm the getBookingHistory Firebase Function is deployed, then try again."
+              : "Booking history is currently unavailable. Please try again later."
         );
       })
       .finally(() => {
@@ -217,8 +214,9 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
 
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [previewMode, reloadKey]);
+  }, [reloadKey]);
 
   const statuses = useMemo(
     () => Array.from(new Set(bookings.map((booking) => booking.status))).sort(),
@@ -226,35 +224,20 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
   );
   const filteredBookings = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return bookings.filter((booking) =>
+    return sortRecords(bookings.filter((booking) =>
       (statusFilter === "all" || booking.status === statusFilter) &&
       (!normalizedSearch || booking.searchText.includes(normalizedSearch))
-    );
-  }, [bookings, search, statusFilter]);
+    ), sort, (booking) => ({ id: booking.id, name: booking.customer, date: booking.date }));
+  }, [bookings, search, statusFilter, sort]);
+  const pagination = useRecordPagination(filteredBookings, JSON.stringify([search, statusFilter, sort, reloadKey]));
   const paidCount = bookings.filter((booking) => isPaidStatus(booking.status)).length;
   const pendingCount = bookings.filter((booking) => isPendingStatus(booking.status)).length;
   const summaryCards = [
-    { label: "Booking records loaded", value: bookings.length, icon: <CalendarDays size={18} />, color: "#d95316", background: "#fff0e8" },
+    { label: "Total bookings", value: bookings.length, icon: <CalendarDays size={18} />, color: "#d95316", background: "#fff0e8" },
     { label: "Pending payment", value: pendingCount, icon: <Clock3 size={18} />, color: "#9b5f26", background: "#fbf3e8" },
     { label: "Paid / completed", value: paidCount, icon: <CheckCircle2 size={18} />, color: "#22845b", background: "#eaf6ef" },
     { label: "Other statuses", value: bookings.length - paidCount - pendingCount, icon: <CreditCard size={18} />, color: "#785333", background: "#f4efe7" },
   ];
-
-  if (previewMode) {
-    return (
-      <div className="mx-auto w-full max-w-screen-2xl p-4 sm:p-6 lg:p-10">
-        <section className="rounded-2xl p-6 sm:p-8" style={cardStyle}>
-          <div className="flex items-center gap-3">
-            <History size={20} color="#d95316" />
-            <h2 className="text-2xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Booking history</h2>
-          </div>
-          <p className="mt-3 text-sm" style={{ color: "#655848" }}>
-            Booking records require an authenticated Firebase administrator session. Sign out of preview and sign in with your admin account to load the bookings collection.
-          </p>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-10">
@@ -302,6 +285,7 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
             <option value="all">All statuses</option>
             {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
           </select>
+          <RecordSortSelect label="bookings" nameLabel="Customer" value={sort} onChange={setSort} />
           <button
             type="button"
             onClick={() => setReloadKey((key) => key + 1)}
@@ -321,11 +305,13 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
             <History size={17} color="#d95316" />
             <h3 className="text-sm font-semibold" style={{ color: "#2d241d" }}>Booking records</h3>
           </div>
-          <span className="text-xs" style={{ color: "#82766a" }}>Up to 500 records · {filteredBookings.length} shown</span>
+          <span className="text-xs" style={{ color: "#82766a" }}>
+            {loading ? "Loading records…" : error ? "History unavailable" : `${filteredBookings.length} matching · ${bookings.length} total`}
+          </span>
         </div>
 
         {loading ? (
-          <p className="px-6 py-10 text-center text-sm" style={{ color: "#82766a" }}>Loading bookings…</p>
+          <p role="status" className="px-6 py-10 text-center text-sm" style={{ color: "#82766a" }}>Loading bookings… {loadedCount} records loaded</p>
         ) : error ? (
           <div className="px-6 py-8 text-center" role="alert">
             <CircleAlert size={20} className="mx-auto mb-2" color="#b54740" />
@@ -353,7 +339,7 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
                 </tr>
               </thead>
               <tbody>
-                {filteredBookings.map((booking) => {
+                {pagination.items.map((booking) => {
                   const tone = getStatusTone(booking.status);
                   return (
                     <tr key={booking.id} className="border-t" style={{ borderColor: "#f0ede7" }}>
@@ -403,10 +389,11 @@ export function BookingHistoryPage({ previewMode = false }: BookingHistoryPagePr
             <p className="mt-1 max-w-md text-sm" style={{ color: "#82766a" }}>
               {bookings.length
                 ? "Try another search term or status."
-                : "New records saved to the bookings collection will appear here."}
+                : "New bookings will appear here."}
             </p>
           </div>
         )}
+        {!loading && !error && <RecordPagination label="bookings" {...pagination} />}
       </section>
     </div>
   );

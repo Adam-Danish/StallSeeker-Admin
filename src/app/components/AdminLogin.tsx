@@ -16,15 +16,15 @@ function getSignInErrorMessage(error: unknown): string {
     return "Too many attempts. Wait a moment and try again.";
   }
   if (code === "auth/network-request-failed") {
-    return "Could not reach Firebase Authentication. Check your connection and try again.";
+    return "Unable to connect. Check your internet connection and try again.";
   }
   if (code === "auth/operation-not-allowed") {
-    return "Email and password sign-in is not enabled for this Firebase project.";
+    return "Sign-in is currently unavailable. Please contact your administrator.";
   }
   return "Sign-in failed. Check your credentials and try again.";
 }
 
-export function AdminLogin({ onPreviewLogin }: { onPreviewLogin?: () => void }) {
+export function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +35,6 @@ export function AdminLogin({ onPreviewLogin }: { onPreviewLogin?: () => void }) 
     setError(null);
     setSubmitting(true);
     try {
-      if (
-        import.meta.env.DEV &&
-        email.trim().toLowerCase() === "admin@gmail.com" &&
-        password === "123456"
-      ) {
-        onPreviewLogin?.();
-        return;
-      }
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (signInError: unknown) {
       console.error("Admin sign-in failed:", signInError);
@@ -73,11 +65,6 @@ export function AdminLogin({ onPreviewLogin }: { onPreviewLogin?: () => void }) 
           <p className="admin-intro mt-1" style={{ color: "#82766a" }}>
             Manage stalls, bookings, and customer accounts.
           </p>
-          {import.meta.env.DEV && (
-            <p className="mt-2 text-xs" style={{ color: "#82766a" }}>
-              Local UI preview: admin@gmail.com / 123456. This does not sign in to Firebase or access live data.
-            </p>
-          )}
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
