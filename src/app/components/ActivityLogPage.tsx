@@ -139,13 +139,10 @@ export function ActivityLogPage({ previewMode = false }: ActivityLogPageProps) {
     <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
-            Admin records
-          </p>
           <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
             Activity log
           </h2>
-          <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
+          <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
             Review recent vendor and account changes made by administrators.
           </p>
         </div>

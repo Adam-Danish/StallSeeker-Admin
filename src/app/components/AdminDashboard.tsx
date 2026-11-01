@@ -232,14 +232,11 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
-            StallSeeker overview
-          </p>
           <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
-            Good morning, Admin
+            Marketplace overview
           </h2>
-          <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
-            Here’s what’s happening across your platform.
+          <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
+            Review listings, account access, and vendor availability.
           </p>
         </div>
         <div
@@ -259,16 +256,16 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, previewMode = 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="admin-metrics">
         {summaryCards.map((card) => (
           <div
             key={card.label}
-            className="group rounded-2xl p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            className="admin-metric"
             style={cardStyle}
           >
             <div className="flex items-center justify-between">
               <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                className="admin-metric-icon flex h-10 w-10 items-center justify-center rounded-xl"
                 style={{ background: card.bg, color: card.color }}
               >
                 {card.icon}

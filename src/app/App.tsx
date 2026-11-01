@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard,
+  Menu,
   BarChart3,
   Map as MapIcon,
   History,
@@ -21,6 +22,8 @@ import { collection, onSnapshot, doc, getDoc, updateDoc, deleteDoc } from "fireb
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { getRecordCreatedAt } from "./dateUtils";
+import { Button } from "./components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./components/ui/sheet";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { ActivityLogPage, type ActivityEvent } from "./components/ActivityLogPage";
@@ -82,6 +85,7 @@ function AdminDashboardApp({
   previewMode?: boolean;
   onPreviewSignOut?: () => void;
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [screen, setScreen] = useState<Screen>("dashboard");
   const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
   const [darkMode, setDarkMode] = useState(
@@ -469,6 +473,7 @@ function AdminDashboardApp({
   };
 
   const handleTabPress = (tab: NavTab) => {
+    setMobileMenuOpen(false);
     setActiveTab(tab);
     if (tab === "dashboard") setScreen("dashboard");
     if (tab === "analytics") setScreen("analytics");
@@ -702,8 +707,8 @@ function AdminDashboardApp({
 
       case "vendors":
         return (
-          <div style={{ padding: "24px" }}>
-            <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+          <div className="admin-page">
+            <div className="admin-toolbar" style={{ marginBottom: "20px" }}>
               <div style={{ flex: 1, display: "flex", alignItems: "center", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px" }}>
                 <Search size={16} color="#C7A98A" />
                 <input
@@ -741,9 +746,9 @@ function AdminDashboardApp({
 
       case "users":
         return (
-          <div style={{ padding: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <h2 style={{ fontSize: "20px", color: "#2D1A0E", fontWeight: "bold" }}>User Management</h2>
+          <div className="admin-page">
+            <div className="admin-toolbar" style={{ justifyContent: "space-between", marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "20px", color: "#2D1A0E", fontWeight: "bold" }}>User management</h2>
               <div style={{ display: "flex", alignItems: "center", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px", width: "260px" }}>
                 <Search size={16} color="#C7A98A" />
                 <input
@@ -757,7 +762,7 @@ function AdminDashboardApp({
             </div>
             
             {/* User Type Tabs */}
-            <div style={{ display: "flex", gap: "0", marginBottom: "20px", borderBottom: "2px solid #EDD9C6" }}>
+            <div className="admin-tabs" style={{ gap: "0", marginBottom: "20px", borderBottom: "2px solid #EDD9C6" }}>
               <button
                 onClick={() => setUserTypeFilter("all")}
                 style={{
@@ -830,7 +835,7 @@ function AdminDashboardApp({
               </p>
             )}
 
-            <div style={{ background: "#fff", border: "1px solid #EDD9C6", borderRadius: "12px", overflow: "hidden" }}>
+            <div className="admin-table" style={{ background: "#fff", border: "1px solid #EDD9C6", borderRadius: "12px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                 <thead>
                   <tr style={{ background: "#FDF0E8", borderBottom: "1px solid #EDD9C6", color: "#7A5C2E", fontSize: "13px" }}>
@@ -938,29 +943,27 @@ function AdminDashboardApp({
   const navItems: { tab: NavTab; label: string; icon: React.ReactNode }[] = [
     { tab: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
     { tab: "analytics", label: "Analytics", icon: <BarChart3 size={18} /> },
-    { tab: "map", label: "Vendor Map", icon: <MapIcon size={18} /> },
-    { tab: "activity-log", label: "Activity Log", icon: <History size={18} /> },
-    { tab: "booking-history", label: "Booking History", icon: <CalendarDays size={18} /> },
+    { tab: "map", label: "Vendor map", icon: <MapIcon size={18} /> },
+    { tab: "activity-log", label: "Activity log", icon: <History size={18} /> },
+    { tab: "booking-history", label: "Booking history", icon: <CalendarDays size={18} /> },
     { tab: "vendors", label: "Vendors", icon: <Store size={18} /> },
     { tab: "users", label: "Users", icon: <Users size={18} /> },
   ];
 
   const pageTitle: Record<Screen, string> = {
-    dashboard: "Admin Dashboard",
+    dashboard: "Admin dashboard",
     analytics: "Analytics",
-    map: "Vendor Map",
-    "activity-log": "Activity Log",
-    "booking-history": "Booking History",
+    map: "Vendor map",
+    "activity-log": "Activity log",
+    "booking-history": "Booking history",
     vendors: "Monitor Vendors",
     users: "User Management",
     "vendor-detail": "Vendor Detail",
     "action-confirm": "Confirm Action",
   };
 
-  return (
-    <div className="flex h-full w-full" style={{ background: "#f8f7f3", fontFamily: "Inter, system-ui, sans-serif" }}>
-      {/* Sidebar */}
-      <aside className="flex w-[68px] flex-shrink-0 flex-col sm:w-[208px] lg:w-[240px]" style={{ background: "#fff", borderRight: "1px solid #e9e5dd", height: "100%" }}>
+  const navigation = (
+    <>
         <div className="flex h-16 min-h-16 items-center justify-start gap-[9px] border-b px-[14px]" style={{ borderColor: "#e9e5dd" }}>
           <img
             src="/app_logo.png"
@@ -968,23 +971,20 @@ function AdminDashboardApp({
             className="h-9 w-9 flex-shrink-0 rounded-xl object-cover"
             style={{ boxShadow: "0 5px 12px rgba(217, 83, 22, 0.22)" }}
           />
-          <div className="hidden h-[30px] min-w-0 flex-col justify-center sm:flex">
+          <div className="flex h-[30px] min-w-0 flex-col justify-center">
             <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "#2d241d", lineHeight: "18px" }}>StallSeeker</p>
-            <p style={{ margin: 0, fontSize: "10px", color: "#a17b58", fontWeight: 500, lineHeight: "12px" }}>Admin Panel</p>
+            <p style={{ margin: 0, fontSize: "10px", color: "#a17b58", fontWeight: 500, lineHeight: "12px" }}>Admin panel</p>
           </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 px-2 py-4 sm:px-3">
-          <p className="hidden sm:block" style={{ fontSize: "10px", fontWeight: 700, color: "#a17b58", letterSpacing: "0.08em", marginBottom: "6px", paddingLeft: "12px" }}>
-            MAIN MENU
-          </p>
+        <nav aria-label="Admin navigation" className="flex flex-1 flex-col gap-1 px-2 py-4 sm:px-3">
           {navItems.map(({ tab, label, icon }) => {
             const isActive = activeTab === tab;
             return (
               <button
                 key={tab}
                 onClick={() => handleTabPress(tab)}
-                className="flex w-full items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition-all hover:bg-[#faf8f4] active:scale-[0.98] sm:justify-start sm:px-3"
+                className="flex w-full items-center justify-start gap-3 rounded-xl px-2 py-3 text-left transition-all hover:bg-[#faf8f4] active:scale-[0.98] sm:justify-start sm:px-3"
                 style={{
                   background: isActive ? "#fff2e9" : "transparent",
                   color: isActive ? "#d95316" : "#75685b",
@@ -994,10 +994,11 @@ function AdminDashboardApp({
                   cursor: "pointer",
                 }}
                 aria-current={isActive ? "page" : undefined}
+                aria-label={label}
                 title={label}
               >
                 <span className="flex-shrink-0" style={{ color: isActive ? "#d95316" : "#a17b58" }}>{icon}</span>
-                <span className="hidden sm:inline">{label}</span>
+                <span className="inline">{label}</span>
               </button>
             );
           })}
@@ -1009,34 +1010,57 @@ function AdminDashboardApp({
             aria-label={`Switch to ${darkMode ? "light" : "dark"} mode`}
             aria-pressed={darkMode}
             title={`Switch to ${darkMode ? "light" : "dark"} mode`}
-            className="flex w-full items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
+            className="flex w-full items-center justify-start gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
             style={{ border: "none", background: "transparent", color: "#75685b", cursor: "pointer", fontSize: "14px", fontWeight: 600 }}
           >
             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            <span className="hidden sm:inline">{darkMode ? "Light mode" : "Dark mode"}</span>
+            <span className="inline">{darkMode ? "Light mode" : "Dark mode"}</span>
           </button>
           <button
             type="button"
             onClick={() => void handleSignOut()}
+            aria-label="Sign out"
             title="Sign out"
-            className="mt-1 flex w-full items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
+            className="mt-1 flex w-full items-center justify-start gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
             style={{ border: "none", background: "transparent", color: "#75685b", cursor: "pointer", fontSize: "14px", fontWeight: 600 }}
           >
             <LogOut size={18} />
-            <span className="hidden sm:inline">Sign out</span>
+            <span className="inline">Sign out</span>
           </button>
         </div>
+    </>
+  );
+
+  return (
+    <div className="admin-shell flex h-full w-full" style={{ background: "#f8f7f3", fontFamily: "var(--font-sans)" }}>
+      {/* Sidebar */}
+      <aside className="hidden w-[208px] flex-shrink-0 flex-col sm:flex lg:w-[240px]" style={{ background: "#fff", borderRight: "1px solid #e9e5dd", height: "100%" }}>
+        {navigation}
       </aside>
 
       {/* Main Area */}
       <div className="flex flex-col flex-1 min-w-0 h-full">
-        <header className="flex h-16 flex-shrink-0 items-center justify-between px-4 sm:px-6 lg:px-8" style={{ background: "rgba(255,255,255,0.94)", borderBottom: "1px solid #e9e5dd" }}>
+        <header className="flex h-16 flex-shrink-0 items-center gap-3 px-4 sm:px-6 lg:px-8" style={{ background: "rgba(255,255,255,0.94)", borderBottom: "1px solid #e9e5dd" }}>
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="sm:hidden" aria-label="Open navigation">
+                <Menu size={20} aria-hidden="true" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-0 p-0">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Admin navigation</SheetTitle>
+                <SheetDescription>Choose an admin workspace.</SheetDescription>
+              </SheetHeader>
+              {navigation}
+            </SheetContent>
+          </Sheet>
           <div>
             <h1 style={{ fontSize: "17px", fontWeight: 650, color: "#2d241d", letterSpacing: "-0.02em" }}>{pageTitle[screen]}</h1>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto" style={{ background: "#f8f7f3" }}>
+        <main className="flex-1 min-w-0 overflow-y-auto" style={{ background: "#f8f7f3" }}>
           {previewMode && (
             <p role="status" className="mx-4 mt-4 rounded-xl px-4 py-3 text-sm sm:mx-6 lg:mx-8" style={{ color: "#785333", background: "#fbf3e8", border: "1px solid #e9d7b7" }}>
               Local UI preview only. Firebase data, activity logs, and account changes are unavailable.
@@ -1071,8 +1095,8 @@ function AdminDashboardApp({
       {/* Edit Listing Modal */}
       {editingVendor && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
-          <form onSubmit={handleSaveListing} style={{ background: "#fff", padding: "24px", borderRadius: "12px", width: "400px", display: "flex", flexDirection: "column", gap: "12px" }}>
-            <h3 style={{ margin: "0 0 12px 0", fontSize: "18px", color: "#2D1A0E" }}>Edit Vendor Listing</h3>
+          <form className="admin-dialog" onSubmit={handleSaveListing} style={{ background: "#fff", padding: "24px", borderRadius: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
+            <h3 style={{ margin: "0 0 12px 0", fontSize: "18px", color: "#2D1A0E" }}>Edit vendor listing</h3>
             <input
               type="text"
               placeholder="Vendor Name"
@@ -1096,7 +1120,7 @@ function AdminDashboardApp({
             />
             <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
               <button type="button" onClick={() => setEditingVendor(null)} style={{ flex: 1, padding: "8px", border: "1px solid #EDD9C6", background: "#fff", borderRadius: "6px", cursor: "pointer" }}>Cancel</button>
-              <button type="submit" style={{ flex: 1, padding: "8px", border: "none", background: "#F05A1A", color: "#fff", borderRadius: "6px", fontWeight: 600, cursor: "pointer" }}>Save Changes</button>
+              <button type="submit" style={{ flex: 1, padding: "8px", border: "none", background: "#F05A1A", color: "#fff", borderRadius: "6px", fontWeight: 600, cursor: "pointer" }}>Save changes</button>
             </div>
           </form>
         </div>
@@ -1209,7 +1233,7 @@ function AuthenticatedAdminApp() {
           />
           <div>
             <p className="font-semibold" style={{ color: "#2d241d" }}>StallSeeker</p>
-            <p className="text-xs" style={{ color: "#a17b58" }}>Admin Panel</p>
+            <p className="text-xs" style={{ color: "#a17b58" }}>Admin panel</p>
           </div>
         </div>
         <h1 className="text-xl font-semibold" style={{ color: "#2d241d" }}>

@@ -84,13 +84,10 @@ export function AnalyticsPage({
     <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
-            Platform insights
-          </p>
           <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
             Analytics
           </h2>
-          <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
+          <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
             Track marketplace listings, availability, and category mix.
           </p>
         </div>
@@ -116,11 +113,11 @@ export function AnalyticsPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="admin-metrics">
         {summaryCards.map((card) => (
-          <div key={card.label} className="rounded-2xl p-5" style={cardStyle}>
+          <div key={card.label} className="admin-metric" style={cardStyle}>
             <div className="flex items-center justify-between">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ color: card.color, background: card.background }}>
+              <span className="admin-metric-icon flex h-10 w-10 items-center justify-center rounded-xl" style={{ color: card.color, background: card.background }}>
                 {card.icon}
               </span>
               <strong className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>{card.value}</strong>

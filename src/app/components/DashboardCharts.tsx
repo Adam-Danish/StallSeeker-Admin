@@ -53,7 +53,7 @@ interface Props {
   showPeriodControl?: boolean;
 }
 
-const PIE_COLORS = ['#d95316', '#c49b61', '#785333', '#e09f67', '#8d5b4c', '#b66b12'];
+const PIE_COLORS = ['var(--primary)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--muted-foreground)'];
 const chartCardStyle = {
   background: '#fff',
   padding: '20px',
@@ -233,12 +233,6 @@ export const DashboardCharts: React.FC<Props> = ({
         <div style={{ width: '100%', height: chartHeight }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={activityData}>
-              <defs>
-                <linearGradient id="colorVendors" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#d95316" stopOpacity={0.22} />
-                  <stop offset="95%" stopColor="#d95316" stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0ede7" />
               <XAxis
                 dataKey="label"
@@ -252,7 +246,7 @@ export const DashboardCharts: React.FC<Props> = ({
                 contentStyle={{ border: '1px solid #e9e5dd', borderRadius: '12px', boxShadow: '0 8px 24px rgba(45, 26, 14, 0.10)' }}
                 labelStyle={{ color: '#433a31', fontWeight: 600 }}
               />
-              <Area type="monotone" dataKey="signups" name="New vendors" stroke="#d95316" strokeWidth={2.5} fillOpacity={1} fill="url(#colorVendors)" />
+              <Area isAnimationActive={false} type="monotone" dataKey="signups" name="New vendors" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="var(--accent)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -316,11 +310,12 @@ export const DashboardCharts: React.FC<Props> = ({
                   contentStyle={{ border: '1px solid #e9e5dd', borderRadius: '12px', boxShadow: '0 8px 24px rgba(45, 26, 14, 0.10)' }}
                   labelStyle={{ color: '#433a31', fontWeight: 600 }}
                 />
-                <Bar dataKey="count" fill="#d95316" radius={[6, 6, 0, 0]} maxBarSize={42} />
+                <Bar isAnimationActive={false} dataKey="count" fill="var(--primary)" radius={[6, 6, 0, 0]} maxBarSize={42} />
               </BarChart>
             ) : (
               <PieChart>
                 <Pie
+                  isAnimationActive={false}
                   data={categoryData}
                   cx="50%"
                   cy="50%"

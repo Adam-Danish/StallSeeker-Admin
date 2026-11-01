@@ -1,0 +1,699 @@
+diff --git a/src/styles/admin.css b/src/styles/admin.css
+new file mode 100644
+--- /dev/null
++++ b/src/styles/admin.css
+@@ -0,0 +1,203 @@
++:root {
++  --font-sans: "Archivo", Arial, sans-serif;
++  --font-editorial: "Newsreader", Georgia, serif;
++  --background: #ffffff;
++  --foreground: #14120f;
++  --card: #ffffff;
++  --card-foreground: #14120f;
++  --popover: #ffffff;
++  --popover-foreground: #14120f;
++  --primary: #bd3020;
++  --primary-foreground: #ffffff;
++  --muted: #f1f2f2;
++  --muted-foreground: #44423d;
++  --accent: #fcece8;
++  --accent-foreground: #a62b1d;
++  --border: #d6d5d1;
++  --input: #d6d5d1;
++  --input-background: #ffffff;
++  --ring: #bd3020;
++  --radius: 0.375rem;
++  --danger-soft: #fbecee;
++  --success: #216441;
++  --success-soft: #edf5ef;
++  --warning: #775112;
++  --warning-soft: #fcf3df;
++  --destructive: #a3242c;
++  --destructive-foreground: #ffffff;
++  --chart-2: #466b73;
++  --chart-3: #686350;
++  --chart-4: #7d4954;
++  --chart-5: #35654a;
++}
++html.dark {
++  --background: #151719;
++  --foreground: #f5f4f0;
++  --card: #1d2022;
++  --card-foreground: #f5f4f0;
++  --popover: #1d2022;
++  --popover-foreground: #f5f4f0;
++  --primary: #bd3020;
++  --primary-foreground: #ffffff;
++  --muted: #282c2f;
++  --muted-foreground: #cacbc6;
++  --accent: #3b2723;
++  --accent-foreground: #ffb3a4;
++  --border: #4c5154;
++  --input: #4c5154;
++  --input-background: #1d2022;
++  --ring: #ff927e;
++  --danger-soft: #382328;
++  --success: #9ad6b0;
++  --success-soft: #203329;
++  --warning: #e5c47e;
++  --warning-soft: #342e20;
++  --destructive: #ff9ca3;
++  --destructive-foreground: #291216;
++  --chart-2: #9cc9d0;
++  --chart-3: #c9c391;
++  --chart-4: #dca4b1;
++  --chart-5: #9ad6b0;
++}
++/* Adapt the existing inline palette without changing feature behavior. */
++html .admin-ui [style*="background: rgb(255, 255, 255)"] { background: var(--card) !important; }
++html .admin-ui [style*="background: rgb(248, 247, 243)"] { background: var(--background) !important; }
++html .admin-ui [style*="color: rgb(45, 26, 14)"],
++html .admin-ui [style*="color: rgb(45, 36, 29)"],
++html .admin-ui [style*="color: rgb(67, 58, 49)"] { color: var(--foreground) !important; }
++html .admin-ui [style*="color: rgb(199, 169, 138)"],
++html .admin-ui [style*="color: rgb(122, 92, 46)"],
++html .admin-ui [style*="color: rgb(161, 123, 88)"],
++html .admin-ui [style*="color: rgb(117, 104, 91)"],
++html .admin-ui [style*="color: rgb(120, 83, 51)"],
++html .admin-ui [style*="color: rgb(130, 118, 106)"],
++html .admin-ui [style*="color: rgb(155, 123, 91)"],
++html .admin-ui [style*="color: rgb(101, 88, 72)"],
++html .admin-ui [style*="color: rgb(148, 135, 121)"],
++html .admin-ui [style*="color: rgb(135, 109, 77)"],
++html .admin-ui [style*="color: rgb(122, 108, 93)"] { color: var(--muted-foreground) !important; }
++html .admin-ui [style*="color: rgb(240, 90, 26)"],
++html .admin-ui [style*="color: rgb(217, 83, 22)"],
++html .admin-ui [style*="color: rgb(37, 99, 235)"] { color: var(--accent-foreground) !important; }
++html .admin-ui [style*="background: rgb(240, 90, 26)"],
++html .admin-ui [style*="background: rgb(217, 83, 22)"],
++html .admin-ui [style*="background: rgb(37, 99, 235)"] { background: var(--primary) !important; }
++html .admin-ui [style*="color: rgb(180, 35, 24)"],
++html .admin-ui [style*="color: rgb(239, 68, 68)"],
++html .admin-ui [style*="color: rgb(198, 40, 40)"],
++html .admin-ui [style*="color: rgb(143, 59, 50)"],
++html .admin-ui [style*="color: rgb(235, 87, 87)"],
++html .admin-ui [style*="color: rgb(181, 71, 64)"],
++html .admin-ui [style*="color: rgb(195, 75, 68)"],
++html .admin-ui [style*="color: rgb(208, 92, 82)"] { color: var(--destructive) !important; }
++html .admin-ui [style*="background: rgb(255, 235, 238)"],
++html .admin-ui [style*="background: rgb(255, 240, 237)"],
++html .admin-ui [style*="background: rgb(253, 234, 222)"] { background: var(--danger-soft) !important; }
++html .admin-ui [style*="color: rgb(46, 125, 50)"],
++html .admin-ui [style*="color: rgb(39, 174, 96)"],
++html .admin-ui [style*="color: rgb(21, 132, 91)"],
++html .admin-ui [style*="color: rgb(20, 115, 79)"],
++html .admin-ui [style*="color: rgb(34, 160, 107)"],
++html .admin-ui [style*="color: rgb(34, 132, 91)"],
++html .admin-ui [style*="color: rgb(16, 185, 129)"] { color: var(--success) !important; }
++html .admin-ui [style*="background: rgb(232, 245, 233)"],
++html .admin-ui [style*="background: rgb(234, 247, 238)"],
++html .admin-ui [style*="background: rgb(234, 246, 239)"],
++html .admin-ui [style*="background: rgb(245, 250, 246)"] { background: var(--success-soft) !important; }
++html .admin-ui [style*="color: rgb(217, 119, 6)"],
++html .admin-ui [style*="color: rgb(242, 153, 74)"],
++html .admin-ui [style*="color: rgb(196, 122, 23)"],
++html .admin-ui [style*="color: rgb(182, 107, 18)"],
++html .admin-ui [style*="color: rgb(155, 95, 38)"] { color: var(--warning) !important; }
++html .admin-ui [style*="background: rgb(251, 243, 232)"],
++html .admin-ui [style*="background: rgb(254, 249, 231)"],
++html .admin-ui [style*="background: rgb(255, 249, 239)"] { background: var(--warning-soft) !important; }
++html .admin-ui [style*="background: rgb(253, 240, 232)"],
++html .admin-ui [style*="background: rgb(232, 241, 255)"],
++html .admin-ui [style*="background: rgb(255, 242, 233)"],
++html .admin-ui [style*="background: rgb(255, 240, 232)"],
++html .admin-ui [style*="background: rgb(253, 246, 238)"] { background: var(--accent) !important; }
++html .admin-ui [style*="background: rgb(250, 248, 244)"],
++html .admin-ui [style*="background: rgb(244, 239, 231)"],
++html .admin-ui [style*="background: rgb(241, 238, 232)"],
++html .admin-ui [style*="background: rgb(246, 243, 237)"] { background: var(--muted) !important; }
++
++html body.admin-ui, html .admin-ui #root, html .admin-ui main { background: var(--background) !important; color: var(--foreground); }
++.admin-ui { font-family: var(--font-sans); line-height: 1.5; }
++html .admin-ui :is(aside, header) { background: var(--card) !important; border-color: var(--border) !important; }
++html .admin-ui :is([style*="border:"], [style*="border-bottom:"], [style*="border-top:"], [style*="border-right:"], [style*="border-color:"]) { border-color: var(--border) !important; }
++html .admin-ui :is([style*="box-shadow:"], [class*="shadow"]) { box-shadow: none !important; }
++html .admin-ui :is(.rounded-xl, .rounded-2xl, [style*="border-radius:"]) { border-radius: var(--radius) !important; }
++html .admin-ui :is(h1, h2, h3, h4) { font-weight: 800 !important; line-height: 1.2; }
++.admin-ui :is(h1, h2) { letter-spacing: -0.02em; }
++.admin-ui p { overflow-wrap: anywhere; }
++.admin-ui :is(button, input, select, textarea) { font-family: inherit; }
++.admin-ui :is(button, input:not([type="checkbox"]):not([type="radio"]), select) { min-height: 44px; }
++.admin-ui :is(input, select, textarea) { min-width: 0; }
++html .admin-ui :is(input, select, textarea) { color: var(--foreground); background-color: var(--card); }
++html .admin-ui :is(input, textarea)::placeholder { color: var(--muted-foreground); opacity: 1; }
++.admin-ui button { transition: filter 120ms ease, background-color 120ms ease, color 120ms ease; transform: none !important; }
++.admin-ui button:enabled:hover { filter: brightness(0.94); }
++.admin-ui button:enabled:active { filter: brightness(0.88); }
++.admin-ui button:disabled { cursor: not-allowed; opacity: 0.55; }
++.admin-ui :is(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--ring) !important; outline-offset: 3px; }
++.admin-ui a { text-underline-offset: 3px; }
++.admin-ui a:hover { text-decoration: underline; }
++.admin-ui :is(table, strong, time, .recharts-wrapper) { font-variant-numeric: tabular-nums; }
++.admin-ui :is(td, th) { vertical-align: top; }
++.admin-ui tbody tr:hover { background: var(--muted); }
++.admin-shell main { scrollbar-gutter: stable; }
++.admin-page { width: 100%; min-width: 0; padding: 24px; }
++.admin-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
++.admin-toolbar > * { min-width: 0; }
++.admin-tabs { display: flex; flex-wrap: wrap; }
++.admin-table { overflow-x: auto; }
++.admin-table table { min-width: 700px; }
++.admin-ui .admin-intro { font-family: var(--font-editorial); font-size: 1.125rem; line-height: 1.5; }
++.admin-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--border); }
++html .admin-ui .admin-metric { min-width: 0; padding: 20px 16px; background: transparent !important; border: 0 !important; border-radius: 0 !important; }
++html .admin-ui .admin-metric + .admin-metric { border-inline-start: 1px solid var(--border) !important; }
++.admin-metric-icon { display: none; }
++.admin-metric :is(strong, .text-3xl) { font-size: 2rem; font-weight: 800; }
++.admin-metric p { margin-top: 8px; }
++.admin-dialog { width: min(400px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
++.admin-vendor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
++.admin-vendor-heading { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center; }
++.admin-menu-form { display: flex; flex-wrap: wrap; gap: 12px; }
++.admin-menu-form input { flex: 1 1 180px !important; }
++.admin-menu-form input[type="number"] { flex-basis: 100px !important; }
++.admin-login { border-top: 4px solid var(--primary) !important; }
++html .admin-ui button[aria-current="page"] { background: var(--accent) !important; color: var(--accent-foreground) !important; }
++html .admin-ui .recharts-cartesian-axis-tick-value { fill: var(--muted-foreground) !important; }
++html .admin-ui .recharts-legend-item-text { color: var(--muted-foreground) !important; }
++html .admin-ui .recharts-cartesian-grid line { stroke: var(--border) !important; }
++html .admin-ui .recharts-default-tooltip { background: var(--popover) !important; color: var(--popover-foreground) !important; border-color: var(--border) !important; }
++html .admin-ui :is(.leaflet-popup-content-wrapper, .leaflet-popup-tip) { background: var(--popover); color: var(--popover-foreground); }
++@media (max-width: 767px) {
++  .admin-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++  html .admin-ui .admin-metric:nth-child(3) { border-inline-start: 0 !important; }
++  html .admin-ui .admin-metric:nth-child(n+3) { border-top: 1px solid var(--border) !important; }
++}
++@media (max-width: 639px) {
++  .admin-page { padding: 16px; }
++  .admin-vendor-grid { grid-template-columns: minmax(0, 1fr); }
++  .admin-toolbar > * { flex-basis: 100%; width: 100% !important; }
++  .admin-dialog { padding: 20px; }
++  .admin-vendor-heading > div { width: 100%; }
++  .admin-vendor-heading h2 { overflow-wrap: anywhere; }
++}
++@media (prefers-reduced-motion: reduce) {
++  .admin-ui *, .admin-ui *::before, .admin-ui *::after {
++    animation-duration: 0.01ms !important;
++    animation-iteration-count: 1 !important;
++    transition-duration: 0.01ms !important;
++    scroll-behavior: auto !important;
++  }
++}
++html .admin-ui svg[color]:not([color="#fff"]):not([color="#FFF"]):not([color="#ffffff"]) { color: var(--muted-foreground); }
++html .admin-ui button[style*="background: rgb(235, 87, 87)"], html .admin-ui button[style*="background: rgb(239, 68, 68)"] { background: #a3242c !important; }
++html .admin-ui button[style*="background: rgb(39, 174, 96)"], html .admin-ui button[style*="background: rgb(16, 185, 129)"] { background: #216441 !important; }
++.admin-ui [data-slot="sheet-overlay"] { z-index: 1100; }
++.admin-ui [data-slot="sheet-content"] { z-index: 1101; overflow-y: auto; }
++.admin-ui [data-slot="sheet-content"] > button { width: 44px; height: 44px; display: grid; place-items: center; top: 10px; right: 8px; }
++.admin-ui [data-slot="sheet-content"] > div:first-of-type + div { padding-right: 52px; }
+diff --git a/src/styles/index.css b/src/styles/index.css
+--- a/src/styles/index.css
++++ b/src/styles/index.css
+@@ -3,1 +3,2 @@
+ @import './theme.css';
++@import './admin.css';
+diff --git a/index.html b/index.html
+--- a/index.html
++++ b/index.html
+@@ -6,2 +6,5 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <link rel="preconnect" href="https://fonts.googleapis.com" />
++    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
++    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Newsreader:wght@400;500&display=swap" rel="stylesheet" />
+     <link rel="icon" type="image/png" href="/app_logo.png" />
+@@ -13,3 +16,3 @@
+   </head>
+-  <body>
++  <body class="admin-ui">
+     <div id="root"></div>
+diff --git a/src/app/components/AdminDashboard.tsx b/src/app/components/AdminDashboard.tsx
+--- a/src/app/components/AdminDashboard.tsx
++++ b/src/app/components/AdminDashboard.tsx
+@@ -234,10 +234,7 @@
+         <div>
+-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
+-            StallSeeker overview
+-          </p>
+           <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
+-            Good morning, Admin
++            Marketplace overview
+           </h2>
+-          <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
+-            Here’s what’s happening across your platform.
++          <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
++            Review listings, account access, and vendor availability.
+           </p>
+@@ -261,3 +258,3 @@
+ 
+-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
++      <div className="admin-metrics">
+         {summaryCards.map((card) => (
+@@ -265,3 +262,3 @@
+             key={card.label}
+-            className="group rounded-2xl p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
++            className="admin-metric"
+             style={cardStyle}
+@@ -270,3 +267,3 @@
+               <div
+-                className="flex h-10 w-10 items-center justify-center rounded-xl"
++                className="admin-metric-icon flex h-10 w-10 items-center justify-center rounded-xl"
+                 style={{ background: card.bg, color: card.color }}
+diff --git a/src/app/components/AnalyticsPage.tsx b/src/app/components/AnalyticsPage.tsx
+--- a/src/app/components/AnalyticsPage.tsx
++++ b/src/app/components/AnalyticsPage.tsx
+@@ -86,5 +86,2 @@
+         <div>
+-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
+-            Platform insights
+-          </p>
+           <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
+@@ -92,3 +89,3 @@
+           </h2>
+-          <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
++          <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
+             Track marketplace listings, availability, and category mix.
+@@ -118,7 +115,7 @@
+ 
+-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
++      <div className="admin-metrics">
+         {summaryCards.map((card) => (
+-          <div key={card.label} className="rounded-2xl p-5" style={cardStyle}>
++          <div key={card.label} className="admin-metric" style={cardStyle}>
+             <div className="flex items-center justify-between">
+-              <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ color: card.color, background: card.background }}>
++              <span className="admin-metric-icon flex h-10 w-10 items-center justify-center rounded-xl" style={{ color: card.color, background: card.background }}>
+                 {card.icon}
+diff --git a/src/app/components/BookingHistoryPage.tsx b/src/app/components/BookingHistoryPage.tsx
+--- a/src/app/components/BookingHistoryPage.tsx
++++ b/src/app/components/BookingHistoryPage.tsx
+@@ -261,7 +261,4 @@
+       <div>
+-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
+-          Marketplace records
+-        </p>
+         <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Booking history</h2>
+-        <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
++        <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
+           Review booking records and their payment status.
+@@ -270,7 +267,7 @@
+ 
+-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
++      <div className="admin-metrics">
+         {summaryCards.map((card) => (
+-          <div key={card.label} className="rounded-2xl p-5" style={cardStyle}>
++          <div key={card.label} className="admin-metric" style={cardStyle}>
+             <div className="flex items-center justify-between">
+-              <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ color: card.color, background: card.background }}>
++              <span className="admin-metric-icon flex h-10 w-10 items-center justify-center rounded-xl" style={{ color: card.color, background: card.background }}>
+                 {card.icon}
+diff --git a/src/app/components/ActivityLogPage.tsx b/src/app/components/ActivityLogPage.tsx
+--- a/src/app/components/ActivityLogPage.tsx
++++ b/src/app/components/ActivityLogPage.tsx
+@@ -141,5 +141,2 @@
+         <div>
+-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: "#a17b58" }}>
+-            Admin records
+-          </p>
+           <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
+@@ -147,3 +144,3 @@
+           </h2>
+-          <p className="mt-1.5 text-sm" style={{ color: "#82766a" }}>
++          <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
+             Review recent vendor and account changes made by administrators.
+diff --git a/src/app/components/AdminLogin.tsx b/src/app/components/AdminLogin.tsx
+--- a/src/app/components/AdminLogin.tsx
++++ b/src/app/components/AdminLogin.tsx
+@@ -56,3 +56,3 @@
+     <main className="flex min-h-screen items-center justify-center p-4" style={{ background: "#f8f7f3" }}>
+-      <section className="w-full max-w-md rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
++      <section className="admin-login w-full max-w-md rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
+         <div className="mb-6 flex items-center gap-3">
+@@ -71,5 +71,5 @@
+         <div className="mb-6">
+-          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Welcome back</h1>
+-          <p className="mt-1 text-sm" style={{ color: "#82766a" }}>
+-            Sign in with your Firebase admin account to continue.
++          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>StallSeeker admin</h1>
++          <p className="admin-intro mt-1" style={{ color: "#82766a" }}>
++            Manage stalls, bookings, and customer accounts.
+           </p>
+diff --git a/src/app/components/MonitorVendors.tsx b/src/app/components/MonitorVendors.tsx
+--- a/src/app/components/MonitorVendors.tsx
++++ b/src/app/components/MonitorVendors.tsx
+@@ -150,6 +150,6 @@
+   return (
+-    <div className="p-8">
++    <div>
+       {/* Page header */}
+       <div className="mb-6">
+-        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#2D1A0E" }}>Monitor Vendors</h2>
++        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#2D1A0E" }}>Monitor vendors</h2>
+         <p style={{ fontSize: "13px", color: "#9B7B5B", marginTop: "2px" }}>
+@@ -160,3 +160,3 @@
+       {/* Stats row */}
+-      <div className="grid grid-cols-3 gap-4 mb-6">
++      <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
+         {[
+@@ -174,3 +174,3 @@
+       {/* Toolbar */}
+-      <div className="flex items-center justify-between mb-4">
++      <div className="admin-toolbar mb-4">
+         <div className="flex gap-2">
+@@ -198,3 +198,3 @@
+             type="text"
+-            placeholder="Search vendors..."
++            aria-label="Search vendors" placeholder="Search vendors..."
+             value={search}
+@@ -207,3 +207,3 @@
+       {/* Vendor Cards Grid */}
+-      <div className="grid grid-cols-2 gap-4">
++      <div className="admin-vendor-grid">
+         {filtered.map((vendor) => (
+diff --git a/src/app/components/VendorDetail.tsx b/src/app/components/VendorDetail.tsx
+--- a/src/app/components/VendorDetail.tsx
++++ b/src/app/components/VendorDetail.tsx
+@@ -162,3 +162,3 @@
+   return (
+-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
++    <div className="admin-page" style={{ maxWidth: '1200px', margin: '0 auto' }}>
+       {/* Back Button */}
+@@ -182,3 +182,3 @@
+       {/* Header Info */}
+-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
++      <div className="admin-vendor-heading" style={{ marginBottom: '24px' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
+@@ -193,3 +193,3 @@
+             <p style={{ margin: 0, color: '#C7A98A', fontSize: '14px' }}>
+-              📍 {vendorLatitude}, {vendorLongitude}
++              {vendorLatitude}, {vendorLongitude}
+             </p>
+@@ -220,3 +220,3 @@
+         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
+-          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>STATUS</p>
++          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>Status</p>
+           <p style={{ color: vendorStatus ? '#10B981' : '#EF4444', fontWeight: 700, fontSize: '18px', margin: 0 }}>
+@@ -226,3 +226,3 @@
+         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
+-          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>CATEGORY</p>
++          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>Category</p>
+           <p style={{ color: '#F05A1A', fontWeight: 700, fontSize: '18px', margin: 0 }}>{vendorCategory}</p>
+@@ -230,3 +230,3 @@
+         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
+-          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>HOURS</p>
++          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>Hours</p>
+           <p style={{ color: '#2D1A0E', fontWeight: 700, fontSize: '18px', margin: 0 }}>{vendorHours}</p>
+@@ -252,3 +252,3 @@
+           <div>
+-            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Manage Stall Menu</h3>
++            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Stall menu</h3>
+             <p style={{ margin: 0, fontSize: '12px', color: '#C7A98A' }}>Add or delete food items offered by this vendor</p>
+@@ -257,7 +257,7 @@
+ 
+-        {/* Add Item Form */}
+-        <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
++        {/* Add item form */}
++        <form onSubmit={handleAddItem} className="admin-menu-form" style={{ marginBottom: '20px' }}>
+           <input
+             type="text"
+-            placeholder="Item Name (e.g. Nasi Lemak Biasa)"
++            aria-label="Menu item name" placeholder="Item name (e.g. Nasi lemak)"
+             value={newItemName}
+@@ -276,3 +276,3 @@
+             step="0.01"
+-            placeholder="Price (RM)"
++            aria-label="Price in Malaysian ringgit" placeholder="Price (RM)"
+             value={newItemPrice}
+@@ -303,3 +303,3 @@
+           >
+-            <Plus size={16} /> Add Item
++            <Plus size={16} /> Add item
+           </button>
+@@ -313,3 +313,3 @@
+         ) : (
+-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
++          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 250px), 1fr))', gap: '12px' }}>
+             {menuItems.map((item) => (
+@@ -366,3 +366,3 @@
+           <div>
+-            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Customer Reviews</h3>
++            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Customer reviews</h3>
+             <p style={{ margin: 0, fontSize: '12px', color: '#C7A98A' }}>
+diff --git a/src/app/components/ActionConfirmation.tsx b/src/app/components/ActionConfirmation.tsx
+--- a/src/app/components/ActionConfirmation.tsx
++++ b/src/app/components/ActionConfirmation.tsx
+@@ -14,3 +14,3 @@
+     description: "This will hide the stall from customer search and live map until the admin reactivates it.",
+-    confirmLabel: "Confirm Suspension",
++    confirmLabel: "Confirm suspension",
+     confirmBg: "#EB5757",
+@@ -20,3 +20,3 @@
+     bannerBg: "#FDEADE",
+-    bannerText: "You are about to suspend a vendor — this will affect customer visibility.",
++    bannerText: "You are about to suspend a vendor. This will affect customer visibility.",
+   },
+@@ -25,3 +25,3 @@
+     description: "This will make the stall visible again on customer search and the live map.",
+-    confirmLabel: "Confirm Reactivation",
++    confirmLabel: "Confirm reactivation",
+     confirmBg: "#27AE60",
+@@ -31,3 +31,3 @@
+     bannerBg: "#EAF7EE",
+-    bannerText: "You are about to reactivate a vendor — the stall will become visible to customers.",
++    bannerText: "You are about to reactivate a vendor. The stall will become visible to customers.",
+   },
+@@ -39,3 +39,3 @@
+   return (
+-    <div className="p-8 flex items-start justify-center">
++    <div className="p-4 sm:p-8 flex items-start justify-center">
+       <div className="w-full max-w-lg">
+@@ -48,3 +48,3 @@
+           <ArrowLeft size={16} color="#F05A1A" />
+-          <span style={{ fontSize: "13px", color: "#F05A1A", fontWeight: 600 }}>Back to Vendor Detail</span>
++          <span style={{ fontSize: "13px", color: "#F05A1A", fontWeight: 600 }}>Back to vendor details</span>
+         </button>
+@@ -124,3 +124,3 @@
+             {/* Action buttons */}
+-            <div className="flex gap-3">
++            <div className="flex flex-col gap-3 sm:flex-row">
+               <button
+diff --git a/src/app/LiveMap.tsx b/src/app/LiveMap.tsx
+--- a/src/app/LiveMap.tsx
++++ b/src/app/LiveMap.tsx
+@@ -104,5 +104,5 @@
+     }}>
+-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
++      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
+         <div>
+-          <h3 style={{ margin: 0, fontSize: '14px', color: '#C7A98A', letterSpacing: '0.5px' }}>{previewMode ? 'VENDOR LOCATIONS' : 'LIVE VENDOR LOCATIONS'}</h3>
++          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--foreground)' }}>{previewMode ? 'Vendor locations' : 'Live vendor locations'}</h3>
+           <p style={{ margin: 0, fontSize: '13px', color: '#2D1A0E' }}>
+diff --git a/src/app/components/DashboardCharts.tsx b/src/app/components/DashboardCharts.tsx
+--- a/src/app/components/DashboardCharts.tsx
++++ b/src/app/components/DashboardCharts.tsx
+@@ -55,3 +55,3 @@
+ 
+-const PIE_COLORS = ['#d95316', '#c49b61', '#785333', '#e09f67', '#8d5b4c', '#b66b12'];
++const PIE_COLORS = ['var(--primary)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--muted-foreground)'];
+ const chartCardStyle = {
+@@ -235,8 +235,2 @@
+             <AreaChart data={activityData}>
+-              <defs>
+-                <linearGradient id="colorVendors" x1="0" y1="0" x2="0" y2="1">
+-                  <stop offset="5%" stopColor="#d95316" stopOpacity={0.22} />
+-                  <stop offset="95%" stopColor="#d95316" stopOpacity={0} />
+-                </linearGradient>
+-              </defs>
+               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0ede7" />
+@@ -254,3 +248,3 @@
+               />
+-              <Area type="monotone" dataKey="signups" name="New vendors" stroke="#d95316" strokeWidth={2.5} fillOpacity={1} fill="url(#colorVendors)" />
++              <Area isAnimationActive={false} type="monotone" dataKey="signups" name="New vendors" stroke="var(--primary)" strokeWidth={2.5} fillOpacity={1} fill="var(--accent)" />
+             </AreaChart>
+@@ -318,3 +312,3 @@
+                 />
+-                <Bar dataKey="count" fill="#d95316" radius={[6, 6, 0, 0]} maxBarSize={42} />
++                <Bar isAnimationActive={false} dataKey="count" fill="var(--primary)" radius={[6, 6, 0, 0]} maxBarSize={42} />
+               </BarChart>
+@@ -323,2 +317,3 @@
+                 <Pie
++                  isAnimationActive={false}
+                   data={categoryData}
+diff --git a/src/app/App.tsx b/src/app/App.tsx
+--- a/src/app/App.tsx
++++ b/src/app/App.tsx
+@@ -3,2 +3,3 @@
+   LayoutDashboard,
++  Menu,
+   BarChart3,
+@@ -23,2 +24,4 @@
+ import { getRecordCreatedAt } from "./dateUtils";
++import { Button } from "./components/ui/button";
++import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./components/ui/sheet";
+ import { AdminDashboard } from "./components/AdminDashboard";
+@@ -84,2 +87,3 @@
+ }) {
++  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+   const [screen, setScreen] = useState<Screen>("dashboard");
+@@ -471,2 +475,3 @@
+   const handleTabPress = (tab: NavTab) => {
++    setMobileMenuOpen(false);
+     setActiveTab(tab);
+@@ -704,4 +709,4 @@
+         return (
+-          <div style={{ padding: "24px" }}>
+-            <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
++          <div className="admin-page">
++            <div className="admin-toolbar" style={{ marginBottom: "20px" }}>
+               <div style={{ flex: 1, display: "flex", alignItems: "center", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px" }}>
+@@ -743,5 +748,5 @@
+         return (
+-          <div style={{ padding: "24px" }}>
+-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+-              <h2 style={{ fontSize: "20px", color: "#2D1A0E", fontWeight: "bold" }}>User Management</h2>
++          <div className="admin-page">
++            <div className="admin-toolbar" style={{ justifyContent: "space-between", marginBottom: "16px" }}>
++              <h2 style={{ fontSize: "20px", color: "#2D1A0E", fontWeight: "bold" }}>User management</h2>
+               <div style={{ display: "flex", alignItems: "center", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px", width: "260px" }}>
+@@ -759,3 +764,3 @@
+             {/* User Type Tabs */}
+-            <div style={{ display: "flex", gap: "0", marginBottom: "20px", borderBottom: "2px solid #EDD9C6" }}>
++            <div className="admin-tabs" style={{ gap: "0", marginBottom: "20px", borderBottom: "2px solid #EDD9C6" }}>
+               <button
+@@ -832,3 +837,3 @@
+ 
+-            <div style={{ background: "#fff", border: "1px solid #EDD9C6", borderRadius: "12px", overflow: "hidden" }}>
++            <div className="admin-table" style={{ background: "#fff", border: "1px solid #EDD9C6", borderRadius: "12px" }}>
+               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+@@ -940,5 +945,5 @@
+     { tab: "analytics", label: "Analytics", icon: <BarChart3 size={18} /> },
+-    { tab: "map", label: "Vendor Map", icon: <MapIcon size={18} /> },
+-    { tab: "activity-log", label: "Activity Log", icon: <History size={18} /> },
+-    { tab: "booking-history", label: "Booking History", icon: <CalendarDays size={18} /> },
++    { tab: "map", label: "Vendor map", icon: <MapIcon size={18} /> },
++    { tab: "activity-log", label: "Activity log", icon: <History size={18} /> },
++    { tab: "booking-history", label: "Booking history", icon: <CalendarDays size={18} /> },
+     { tab: "vendors", label: "Vendors", icon: <Store size={18} /> },
+@@ -948,7 +953,7 @@
+   const pageTitle: Record<Screen, string> = {
+-    dashboard: "Admin Dashboard",
++    dashboard: "Admin dashboard",
+     analytics: "Analytics",
+-    map: "Vendor Map",
+-    "activity-log": "Activity Log",
+-    "booking-history": "Booking History",
++    map: "Vendor map",
++    "activity-log": "Activity log",
++    "booking-history": "Booking history",
+     vendors: "Monitor Vendors",
+@@ -959,6 +964,4 @@
+ 
+-  return (
+-    <div className="flex h-full w-full" style={{ background: "#f8f7f3", fontFamily: "Inter, system-ui, sans-serif" }}>
+-      {/* Sidebar */}
+-      <aside className="flex w-[68px] flex-shrink-0 flex-col sm:w-[208px] lg:w-[240px]" style={{ background: "#fff", borderRight: "1px solid #e9e5dd", height: "100%" }}>
++  const navigation = (
++    <>
+         <div className="flex h-16 min-h-16 items-center justify-start gap-[9px] border-b px-[14px]" style={{ borderColor: "#e9e5dd" }}>
+@@ -970,5 +973,5 @@
+           />
+-          <div className="hidden h-[30px] min-w-0 flex-col justify-center sm:flex">
++          <div className="flex h-[30px] min-w-0 flex-col justify-center">
+             <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, color: "#2d241d", lineHeight: "18px" }}>StallSeeker</p>
+-            <p style={{ margin: 0, fontSize: "10px", color: "#a17b58", fontWeight: 500, lineHeight: "12px" }}>Admin Panel</p>
++            <p style={{ margin: 0, fontSize: "10px", color: "#a17b58", fontWeight: 500, lineHeight: "12px" }}>Admin panel</p>
+           </div>
+@@ -976,6 +979,3 @@
+ 
+-        <nav className="flex flex-1 flex-col gap-1 px-2 py-4 sm:px-3">
+-          <p className="hidden sm:block" style={{ fontSize: "10px", fontWeight: 700, color: "#a17b58", letterSpacing: "0.08em", marginBottom: "6px", paddingLeft: "12px" }}>
+-            MAIN MENU
+-          </p>
++        <nav aria-label="Admin navigation" className="flex flex-1 flex-col gap-1 px-2 py-4 sm:px-3">
+           {navItems.map(({ tab, label, icon }) => {
+@@ -986,3 +986,3 @@
+                 onClick={() => handleTabPress(tab)}
+-                className="flex w-full items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition-all hover:bg-[#faf8f4] active:scale-[0.98] sm:justify-start sm:px-3"
++                className="flex w-full items-center justify-start gap-3 rounded-xl px-2 py-3 text-left transition-all hover:bg-[#faf8f4] active:scale-[0.98] sm:justify-start sm:px-3"
+                 style={{
+@@ -996,2 +996,3 @@
+                 aria-current={isActive ? "page" : undefined}
++                aria-label={label}
+                 title={label}
+@@ -999,3 +1000,3 @@
+                 <span className="flex-shrink-0" style={{ color: isActive ? "#d95316" : "#a17b58" }}>{icon}</span>
+-                <span className="hidden sm:inline">{label}</span>
++                <span className="inline">{label}</span>
+               </button>
+@@ -1011,3 +1012,3 @@
+             title={`Switch to ${darkMode ? "light" : "dark"} mode`}
+-            className="flex w-full items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
++            className="flex w-full items-center justify-start gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
+             style={{ border: "none", background: "transparent", color: "#75685b", cursor: "pointer", fontSize: "14px", fontWeight: 600 }}
+@@ -1015,3 +1016,3 @@
+             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+-            <span className="hidden sm:inline">{darkMode ? "Light mode" : "Dark mode"}</span>
++            <span className="inline">{darkMode ? "Light mode" : "Dark mode"}</span>
+           </button>
+@@ -1020,4 +1021,5 @@
+             onClick={() => void handleSignOut()}
++            aria-label="Sign out"
+             title="Sign out"
+-            className="mt-1 flex w-full items-center justify-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
++            className="mt-1 flex w-full items-center justify-start gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-[#faf8f4] sm:justify-start sm:px-3"
+             style={{ border: "none", background: "transparent", color: "#75685b", cursor: "pointer", fontSize: "14px", fontWeight: 600 }}
+@@ -1025,5 +1027,13 @@
+             <LogOut size={18} />
+-            <span className="hidden sm:inline">Sign out</span>
++            <span className="inline">Sign out</span>
+           </button>
+         </div>
++    </>
++  );
++
++  return (
++    <div className="admin-shell flex h-full w-full" style={{ background: "#f8f7f3", fontFamily: "var(--font-sans)" }}>
++      {/* Sidebar */}
++      <aside className="hidden w-[208px] flex-shrink-0 flex-col sm:flex lg:w-[240px]" style={{ background: "#fff", borderRight: "1px solid #e9e5dd", height: "100%" }}>
++        {navigation}
+       </aside>
+@@ -1032,3 +1042,17 @@
+       <div className="flex flex-col flex-1 min-w-0 h-full">
+-        <header className="flex h-16 flex-shrink-0 items-center justify-between px-4 sm:px-6 lg:px-8" style={{ background: "rgba(255,255,255,0.94)", borderBottom: "1px solid #e9e5dd" }}>
++        <header className="flex h-16 flex-shrink-0 items-center gap-3 px-4 sm:px-6 lg:px-8" style={{ background: "rgba(255,255,255,0.94)", borderBottom: "1px solid #e9e5dd" }}>
++          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
++            <SheetTrigger asChild>
++              <Button variant="outline" size="icon" className="sm:hidden" aria-label="Open navigation">
++                <Menu size={20} aria-hidden="true" />
++              </Button>
++            </SheetTrigger>
++            <SheetContent side="left" className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-0 p-0">
++              <SheetHeader className="sr-only">
++                <SheetTitle>Admin navigation</SheetTitle>
++                <SheetDescription>Choose an admin workspace.</SheetDescription>
++              </SheetHeader>
++              {navigation}
++            </SheetContent>
++          </Sheet>
+           <div>
+@@ -1038,3 +1062,3 @@
+ 
+-        <main className="flex-1 overflow-y-auto" style={{ background: "#f8f7f3" }}>
++        <main className="flex-1 min-w-0 overflow-y-auto" style={{ background: "#f8f7f3" }}>
+           {previewMode && (
+@@ -1073,4 +1097,4 @@
+         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+-          <form onSubmit={handleSaveListing} style={{ background: "#fff", padding: "24px", borderRadius: "12px", width: "400px", display: "flex", flexDirection: "column", gap: "12px" }}>
+-            <h3 style={{ margin: "0 0 12px 0", fontSize: "18px", color: "#2D1A0E" }}>Edit Vendor Listing</h3>
++          <form className="admin-dialog" onSubmit={handleSaveListing} style={{ background: "#fff", padding: "24px", borderRadius: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
++            <h3 style={{ margin: "0 0 12px 0", fontSize: "18px", color: "#2D1A0E" }}>Edit vendor listing</h3>
+             <input
+@@ -1098,3 +1122,3 @@
+               <button type="button" onClick={() => setEditingVendor(null)} style={{ flex: 1, padding: "8px", border: "1px solid #EDD9C6", background: "#fff", borderRadius: "6px", cursor: "pointer" }}>Cancel</button>
+-              <button type="submit" style={{ flex: 1, padding: "8px", border: "none", background: "#F05A1A", color: "#fff", borderRadius: "6px", fontWeight: 600, cursor: "pointer" }}>Save Changes</button>
++              <button type="submit" style={{ flex: 1, padding: "8px", border: "none", background: "#F05A1A", color: "#fff", borderRadius: "6px", fontWeight: 600, cursor: "pointer" }}>Save changes</button>
+             </div>
+@@ -1211,3 +1235,3 @@
+             <p className="font-semibold" style={{ color: "#2d241d" }}>StallSeeker</p>
+-            <p className="text-xs" style={{ color: "#a17b58" }}>Admin Panel</p>
++            <p className="text-xs" style={{ color: "#a17b58" }}>Admin panel</p>
+                      </div>

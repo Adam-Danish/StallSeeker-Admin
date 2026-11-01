@@ -54,7 +54,7 @@ export function AdminLogin({ onPreviewLogin }: { onPreviewLogin?: () => void }) 
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4" style={{ background: "#f8f7f3" }}>
-      <section className="w-full max-w-md rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
+      <section className="admin-login w-full max-w-md rounded-2xl p-6 sm:p-8" style={{ background: "#fff", border: "1px solid #e9e5dd", boxShadow: "0 12px 36px rgba(45, 26, 14, 0.08)" }}>
         <div className="mb-6 flex items-center gap-3">
           <img
             src="/app_logo.png"
@@ -69,9 +69,9 @@ export function AdminLogin({ onPreviewLogin }: { onPreviewLogin?: () => void }) 
         </div>
 
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Welcome back</h1>
-          <p className="mt-1 text-sm" style={{ color: "#82766a" }}>
-            Sign in with your Firebase admin account to continue.
+          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>StallSeeker admin</h1>
+          <p className="admin-intro mt-1" style={{ color: "#82766a" }}>
+            Manage stalls, bookings, and customer accounts.
           </p>
           {import.meta.env.DEV && (
             <p className="mt-2 text-xs" style={{ color: "#82766a" }}>

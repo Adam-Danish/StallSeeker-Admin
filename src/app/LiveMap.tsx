@@ -102,9 +102,9 @@ export const LiveVendorMap: React.FC<{
       display: fullSize ? 'flex' : undefined,
       flexDirection: fullSize ? 'column' : undefined,
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '12px' }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: '14px', color: '#C7A98A', letterSpacing: '0.5px' }}>{previewMode ? 'VENDOR LOCATIONS' : 'LIVE VENDOR LOCATIONS'}</h3>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--foreground)' }}>{previewMode ? 'Vendor locations' : 'Live vendor locations'}</h3>
           <p style={{ margin: 0, fontSize: '13px', color: '#2D1A0E' }}>
             {previewMode ? 'Location data is unavailable in local preview mode' : 'Real-time geographic status of active stalls'}
           </p>

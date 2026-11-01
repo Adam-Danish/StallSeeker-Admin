@@ -12,24 +12,24 @@ const CONFIG = {
   suspend: {
     title: "Suspend vendor?",
     description: "This will hide the stall from customer search and live map until the admin reactivates it.",
-    confirmLabel: "Confirm Suspension",
+    confirmLabel: "Confirm suspension",
     confirmBg: "#EB5757",
     icon: <AlertTriangle size={32} color="#EB5757" />,
     iconBg: "#FDEADE",
     bannerColor: "#EB5757",
     bannerBg: "#FDEADE",
-    bannerText: "You are about to suspend a vendor — this will affect customer visibility.",
+    bannerText: "You are about to suspend a vendor. This will affect customer visibility.",
   },
   reactivate: {
     title: "Reactivate vendor?",
     description: "This will make the stall visible again on customer search and the live map.",
-    confirmLabel: "Confirm Reactivation",
+    confirmLabel: "Confirm reactivation",
     confirmBg: "#27AE60",
     icon: <RefreshCw size={32} color="#27AE60" />,
     iconBg: "#EAF7EE",
     bannerColor: "#27AE60",
     bannerBg: "#EAF7EE",
-    bannerText: "You are about to reactivate a vendor — the stall will become visible to customers.",
+    bannerText: "You are about to reactivate a vendor. The stall will become visible to customers.",
   },
 };
 
@@ -37,7 +37,7 @@ export function ActionConfirmation({ action, vendor, onCancel, onConfirm }: Prop
   const cfg = CONFIG[action];
 
   return (
-    <div className="p-8 flex items-start justify-center">
+    <div className="p-4 sm:p-8 flex items-start justify-center">
       <div className="w-full max-w-lg">
         {/* Breadcrumb */}
         <button
@@ -46,7 +46,7 @@ export function ActionConfirmation({ action, vendor, onCancel, onConfirm }: Prop
           style={{ background: "none", border: "none", cursor: "pointer" }}
         >
           <ArrowLeft size={16} color="#F05A1A" />
-          <span style={{ fontSize: "13px", color: "#F05A1A", fontWeight: 600 }}>Back to Vendor Detail</span>
+          <span style={{ fontSize: "13px", color: "#F05A1A", fontWeight: 600 }}>Back to vendor details</span>
         </button>
 
         {/* Confirmation Card */}
@@ -122,7 +122,7 @@ export function ActionConfirmation({ action, vendor, onCancel, onConfirm }: Prop
             </div>
 
             {/* Action buttons */}
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={onCancel}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl active:opacity-80"

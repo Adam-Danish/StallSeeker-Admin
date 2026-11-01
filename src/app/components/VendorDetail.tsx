@@ -160,7 +160,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="admin-page" style={{ maxWidth: '1200px', margin: '0 auto' }}>
       {/* Back Button */}
       <button
         onClick={onBack}
@@ -180,7 +180,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       </button>
 
       {/* Header Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+      <div className="admin-vendor-heading" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0 }}>
           <ImagePreview
             src={vendor.profileImageUrl || vendor.imageUrl || ''}
@@ -191,7 +191,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
           <div style={{ minWidth: 0 }}>
             <h2 style={{ margin: 0, fontSize: '24px', color: '#2D1A0E' }}>{vendorName}</h2>
             <p style={{ margin: 0, color: '#C7A98A', fontSize: '14px' }}>
-              📍 {vendorLatitude}, {vendorLongitude}
+              {vendorLatitude}, {vendorLongitude}
             </p>
           </div>
         </div>
@@ -218,17 +218,17 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       {/* Info Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
-          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>STATUS</p>
+          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>Status</p>
           <p style={{ color: vendorStatus ? '#10B981' : '#EF4444', fontWeight: 700, fontSize: '18px', margin: 0 }}>
             {vendorStatus ? 'Open' : 'Closed'}
           </p>
         </div>
         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
-          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>CATEGORY</p>
+          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>Category</p>
           <p style={{ color: '#F05A1A', fontWeight: 700, fontSize: '18px', margin: 0 }}>{vendorCategory}</p>
         </div>
         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
-          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>HOURS</p>
+          <p style={{ color: '#C7A98A', fontSize: '12px', margin: '0 0 6px 0', fontWeight: 600 }}>Hours</p>
           <p style={{ color: '#2D1A0E', fontWeight: 700, fontSize: '18px', margin: 0 }}>{vendorHours}</p>
         </div>
         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>
@@ -250,16 +250,16 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
             <Utensils size={20} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Manage Stall Menu</h3>
+            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Stall menu</h3>
             <p style={{ margin: 0, fontSize: '12px', color: '#C7A98A' }}>Add or delete food items offered by this vendor</p>
           </div>
         </div>
 
-        {/* Add Item Form */}
-        <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+        {/* Add item form */}
+        <form onSubmit={handleAddItem} className="admin-menu-form" style={{ marginBottom: '20px' }}>
           <input
             type="text"
-            placeholder="Item Name (e.g. Nasi Lemak Biasa)"
+            aria-label="Menu item name" placeholder="Item name (e.g. Nasi lemak)"
             value={newItemName}
             onChange={(e) => setNewItemName(e.target.value)}
             style={{
@@ -274,7 +274,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
           <input
             type="number"
             step="0.01"
-            placeholder="Price (RM)"
+            aria-label="Price in Malaysian ringgit" placeholder="Price (RM)"
             value={newItemPrice}
             onChange={(e) => setNewItemPrice(e.target.value)}
             style={{
@@ -301,7 +301,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
               gap: '6px',
             }}
           >
-            <Plus size={16} /> Add Item
+            <Plus size={16} /> Add item
           </button>
         </form>
 
@@ -311,7 +311,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
             No menu items found. Add one above!
           </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 250px), 1fr))', gap: '12px' }}>
             {menuItems.map((item) => (
               <div
                 key={item.id}
@@ -364,7 +364,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
             <Star size={20} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Customer Reviews</h3>
+            <h3 style={{ margin: 0, fontSize: '18px', color: '#2D1A0E' }}>Customer reviews</h3>
             <p style={{ margin: 0, fontSize: '12px', color: '#C7A98A' }}>
               {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'} for this vendor
             </p>

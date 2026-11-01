@@ -148,17 +148,17 @@ export function MonitorVendors({
   const closedCount = vendors.length - openCount;
 
   return (
-    <div className="p-8">
+    <div>
       {/* Page header */}
       <div className="mb-6">
-        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#2D1A0E" }}>Monitor Vendors</h2>
+        <h2 style={{ fontSize: "22px", fontWeight: 700, color: "#2D1A0E" }}>Monitor vendors</h2>
         <p style={{ fontSize: "13px", color: "#9B7B5B", marginTop: "2px" }}>
           {previewMode ? "Vendor records are unavailable in local preview mode" : "Track vendor activity and stall status"}
         </p>
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
         {[
           { label: "Total Vendors", value: vendors.length.toString(), color: "#2D1A0E", bg: "#fff" },
           { label: "Open Now", value: openCount.toString(), color: "#27AE60", bg: "#EAF7EE" },
@@ -172,7 +172,7 @@ export function MonitorVendors({
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="admin-toolbar mb-4">
         <div className="flex gap-2">
           {(["All", "Open", "Closed"] as Filter[]).map((f) => (
             <button
@@ -196,7 +196,7 @@ export function MonitorVendors({
           <Search size={14} color="#C7A98A" />
           <input
             type="text"
-            placeholder="Search vendors..."
+            aria-label="Search vendors" placeholder="Search vendors..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ border: "none", outline: "none", background: "transparent", fontSize: "13px", color: "#2D1A0E", width: "100%" }}
@@ -205,7 +205,7 @@ export function MonitorVendors({
       </div>
 
       {/* Vendor Cards Grid */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="admin-vendor-grid">
         {filtered.map((vendor) => (
           <div
             key={vendor.vendorId}
