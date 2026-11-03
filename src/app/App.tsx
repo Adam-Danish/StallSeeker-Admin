@@ -12,19 +12,19 @@ import {
   Store,
   Users,
   Search,
-  Filter,
   Phone,
   Trash2,
   UserX,
   UserCheck
 } from "lucide-react";
-import { collection, onSnapshot, doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, getDoc, updateDoc, deleteDoc, type DocumentData } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { getRecordCreatedAt } from "./dateUtils";
 import { Button } from "./components/ui/button";
-import { RecordPagination, RecordSortSelect } from "./components/RecordPagination";
-import { sortRecords, useRecordPagination, type RecordSort } from "./useRecordPagination";
+import { CursorRecordPagination, RecordSortSelect } from "./components/RecordPagination";
+import type { RecordSort } from "./useRecordPagination";
+import { useAdminDirectoryPage, type UserAccount } from "./useAdminDirectoryPage";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./components/ui/sheet";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { AnalyticsPage } from "./components/AnalyticsPage";
@@ -34,7 +34,6 @@ import { recordAdminActivity } from "./adminActivityApi";
 import {
   lookupAccountCreationDates,
   performUserManagementAction,
-  type UserProfileCollection,
 } from "./userManagementApi";
 import { AdminLogin } from "./components/AdminLogin";
 import type { DashboardVendor } from "./components/DashboardCharts";
@@ -43,17 +42,6 @@ import { VendorDetail } from "./components/VendorDetail";
 import { ActionConfirmation } from "./components/ActionConfirmation";
 import { LiveVendorMap } from "./LiveMap";
 import type { Vendor, AdminAction } from "./components/types";
-
-interface UserAccount {
-  id: string;
-  name: string;
-  email: string;
-  phoneNumber: string;
-  collectionName: UserProfileCollection;
-  createdAt: Date | null;
-  role?: 'customer' | 'vendor' | 'admin';
-  isAccountDisabled?: boolean;
-}
 
 type Screen = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
 type NavTab = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users";
@@ -87,6 +75,59 @@ function getAccountActionErrorMessage(error: unknown): string {
   if (code === "failed-precondition") return "You cannot disable or delete your own administrator account.";
   if (code === "not-found" || code === "auth-user-not-found") return "This account is unavailable. Please refresh the user list.";
   return "Unable to complete this account change. Please refresh the user list and try again.";
+}
+
+function vendorFromData(id: string, data: DocumentData): Vendor {
+  const latitude = Number(data.latitude ?? data.lat ?? 0);
+  const longitude = Number(data.longitude ?? data.lng ?? 0);
+
+  return {
+    id,
+    vendorId: id,
+    name: data.name || data.stallName || "Unknown",
+    stallName: data.stallName || data.name || "Unknown",
+    description: data.description || "",
+    category: data.category || "Unknown",
+    openingHours: data.openingHours || data.hours || "",
+    hours: data.hours || data.openingHours || "",
+    isOpen: Boolean(data.isOpen),
+    latitude: Number.isFinite(latitude) ? latitude : 0,
+    longitude: Number.isFinite(longitude) ? longitude : 0,
+    lat: Number.isFinite(latitude) ? latitude : 0,
+    lng: Number.isFinite(longitude) ? longitude : 0,
+    imageUrl: firstImageUrl(
+      data.profileImageUrl,
+      data.profilePictureUrl,
+      data.photoURL,
+      data.photoUrl,
+      data.imageUrl,
+      data.imageURL,
+      data.image
+    ),
+    profileImageUrl: firstImageUrl(
+      data.profileImageUrl,
+      data.profilePictureUrl,
+      data.photoURL,
+      data.photoUrl,
+      data.imageUrl,
+      data.imageURL,
+      data.image
+    ),
+    phoneNumber: firstNonEmptyValue(
+      data.phoneNumber,
+      data.phone_number,
+      data.phone,
+      data.mobileNumber,
+      data.mobile_number,
+      data.mobile,
+      data.contactNumber,
+      data.contact_number,
+      data.telephone,
+      data.contact
+    ),
+    isAccountDisabled: Boolean(data.isAccountDisabled),
+    createdAt: getRecordCreatedAt(data),
+  };
 }
 
 function AdminDashboardApp() {
@@ -127,78 +168,31 @@ function AdminDashboardApp() {
   const [pendingAction, setPendingAction] = useState<AdminAction>("suspend");
 
   // Search & Filter State
-  const [searchQuery, setSearchQuery] = useState("");
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [userSort, setUserSort] = useState<RecordSort>("newest");
-  const [categoryFilter, setCategoryFilter] = useState("All");
   const [userTypeFilter, setUserTypeFilter] = useState<"all" | "customers" | "vendors" | "admins">("all");
+
+  const userPagination = useAdminDirectoryPage<UserAccount>({
+    kind: "account", search: userSearchQuery, sort: userSort,
+    role: userTypeFilter === "customers" ? "customer" : userTypeFilter === "vendors" ? "vendor" : userTypeFilter === "admins" ? "admin" : "all",
+  }, screen === "users");
 
   // Edit Listing State
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
 
-  // 1. Fetch Vendors Real-time
+  // Full datasets are needed only while viewing analytics, never behind list pages.
   useEffect(() => {
+    if (screen !== "analytics") return;
     const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
-      const docs: Vendor[] = snapshot.docs.map((d) => {
-        const data = d.data();
-        const latitude = Number(data.latitude ?? data.lat ?? 0);
-        const longitude = Number(data.longitude ?? data.lng ?? 0);
-
-        return {
-          id: d.id,
-          vendorId: d.id,
-          name: data.name || data.stallName || "Unknown",
-          stallName: data.stallName || data.name || "Unknown",
-          description: data.description || "",
-          category: data.category || "Unknown",
-          openingHours: data.openingHours || data.hours || "",
-          hours: data.hours || data.openingHours || "",
-          isOpen: Boolean(data.isOpen),
-          latitude: Number.isFinite(latitude) ? latitude : 0,
-          longitude: Number.isFinite(longitude) ? longitude : 0,
-          lat: Number.isFinite(latitude) ? latitude : 0,
-          lng: Number.isFinite(longitude) ? longitude : 0,
-          imageUrl: firstImageUrl(
-            data.profileImageUrl,
-            data.profilePictureUrl,
-            data.photoURL,
-            data.photoUrl,
-            data.imageUrl,
-            data.imageURL,
-            data.image
-          ),
-          profileImageUrl: firstImageUrl(
-            data.profileImageUrl,
-            data.profilePictureUrl,
-            data.photoURL,
-            data.photoUrl,
-            data.imageUrl,
-            data.imageURL,
-            data.image
-          ),
-          phoneNumber: firstNonEmptyValue(
-            data.phoneNumber,
-            data.phone_number,
-            data.phone,
-            data.mobileNumber,
-            data.mobile_number,
-            data.mobile,
-            data.contactNumber,
-            data.contact_number,
-            data.telephone,
-            data.contact
-          ),
-          isAccountDisabled: Boolean(data.isAccountDisabled),
-          createdAt: getRecordCreatedAt(data),
-        } as Vendor & { isAccountDisabled?: boolean };
-      });
+      const docs = snapshot.docs.map((snapshot) => vendorFromData(snapshot.id, snapshot.data()));
       setVendorsList(docs);
     });
-    return () => unsubscribe();
-  }, []);
+    return () => { unsubscribe(); setVendorsList([]); };
+  }, [screen]);
 
   // 2. Fetch both "users" AND "vendors" collections and merge/cross-reference email
   useEffect(() => {
+    if (screen !== "analytics") return;
     let customerAccounts: UserAccount[] = [];
     let vendorAccounts: UserAccount[] = [];
     const authEmails = new Map<string, string>();
@@ -410,8 +404,9 @@ function AdminDashboardApp() {
       isActive = false;
       unsubUsers();
       unsubVendors();
+      setUsersList([]);
     };
-  }, []);
+  }, [screen]);
 
   useEffect(() => {
     if (screen !== "analytics") return;
@@ -490,12 +485,16 @@ function AdminDashboardApp() {
     navigate("vendor-detail", "vendors");
   };
 
-  // Map Pin Click Navigation
-  const handleVendorClickFromMap = (vendorId: string) => {
-    const vendorToOpen = vendorsList.find((v) => (v.id ?? v.vendorId) === vendorId);
-    if (vendorToOpen) {
-      setSelectedVendor(vendorToOpen);
+  // Open the latest vendor record from a dashboard activity or map marker.
+  const handleVendorSelect = async (vendorId: string) => {
+    try {
+      const snapshot = await getDoc(doc(db, "vendors", vendorId));
+      if (!snapshot.exists()) return;
+      setSelectedVendor(vendorFromData(vendorId, snapshot.data()));
       navigate("vendor-detail", "vendors");
+    } catch (error) {
+      console.error("Unable to open vendor:", error);
+      setActivityNotice("Unable to load this vendor. Please try again.");
     }
   };
 
@@ -554,12 +553,13 @@ function AdminDashboardApp() {
     const actionName = currentStatus ? "re-enable" : "disable";
     if (!window.confirm(`Are you sure you want to ${actionName} sign-in access for this account?`)) return;
 
-    const account = usersList.find((user) => user.id === id);
+    const account = userPagination.items.find((user) => user.id === id);
     const collectionName = account?.collectionName ?? (role === "vendor" ? "vendors" : "users");
     setActiveUserActionId(id);
     setUserActionError(null);
     try {
       await performUserManagementAction(currentStatus ? "enable" : "disable", collectionName, id);
+      userPagination.refresh();
       await recordActivity({
         action: currentStatus ? "account.enabled" : "account.disabled",
         entityType: role === "vendor" ? "vendor" : "user",
@@ -580,13 +580,13 @@ function AdminDashboardApp() {
     if (activeUserActionId) return;
     if (!window.confirm("Permanently delete this account and its profile? This cannot be undone.")) return;
 
-    const account = usersList.find((user) => user.id === id);
+    const account = userPagination.items.find((user) => user.id === id);
     const collectionName = account?.collectionName ?? (role === "vendor" ? "vendors" : "users");
     setActiveUserActionId(id);
     setUserActionError(null);
     try {
       await performUserManagementAction("delete", collectionName, id);
-      setUsersList((currentUsers) => currentUsers.filter((user) => user.id !== id));
+      userPagination.refresh();
       await recordActivity({
         action: "account.deleted",
         entityType: role === "vendor" ? "vendor" : "user",
@@ -602,43 +602,9 @@ function AdminDashboardApp() {
     }
   };
 
-  // Search/Filter Processing for Vendors
-  const categories = ["All", ...Array.from(new Set(vendorsList.map((v) => v.category || "General")))];
-  const filteredVendors = vendorsList.filter((v) => {
-    const matchesSearch = (v.stallName || v.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (v.category || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === "All" || v.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  }).map((vendor) => {
-    const vendorAccount = usersList.find(
-      (user) => user.id === (vendor.id ?? vendor.vendorId) && user.role === "vendor"
-    );
-    return {
-      ...vendor,
-      phoneNumber: vendor.phoneNumber || vendorAccount?.phoneNumber || "",
-    };
-  });
-
-  // User Filter & Search Processing
-  const filteredUsers = sortRecords(usersList.filter((u) => {
-    const matchesRole = userTypeFilter === "all"
-      ? true
-      : u.role === (
-        userTypeFilter === "customers"
-          ? "customer"
-          : userTypeFilter === "vendors"
-            ? "vendor"
-            : "admin"
-      );
-    const matchesSearch = u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                          u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
-    return matchesRole && matchesSearch;
-  }), userSort, (user) => ({ id: user.id, name: user.name, date: user.createdAt }));
-  const userPagination = useRecordPagination(filteredUsers, JSON.stringify([userSearchQuery, userTypeFilter, userSort]));
-  
-  const customerCount = usersList.filter(u => u.role === "customer").length;
-  const vendorCount = usersList.filter(u => u.role === "vendor").length;
-  const adminCount = usersList.filter(u => u.role === "admin").length;
+  const customerCount = userPagination.summary?.customers ?? "—";
+  const vendorCount = userPagination.summary?.vendors ?? "—";
+  const adminCount = userPagination.summary?.admins ?? "—";
   const vendorAccountDates = new Map(
     usersList
       .filter((user) => user.role === "vendor" && user.createdAt)
@@ -666,8 +632,9 @@ function AdminDashboardApp() {
             <AdminDashboard
               onMonitorVendors={() => navigate("vendors", "vendors")}
               onManageUsers={() => navigate("users", "users")}
+              onVendorSelect={handleVendorSelect}
             />
-            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} />
+            <LiveVendorMap onVendorSelect={handleVendorSelect} />
           </div>
         );
 
@@ -686,7 +653,7 @@ function AdminDashboardApp() {
       case "map":
         return (
           <div className="h-full min-h-[520px]">
-            <LiveVendorMap onVendorSelect={handleVendorClickFromMap} fullSize />
+            <LiveVendorMap onVendorSelect={handleVendorSelect} fullSize />
           </div>
         );
 
@@ -699,39 +666,8 @@ function AdminDashboardApp() {
       case "vendors":
         return (
           <div className="admin-page">
-            <div className="admin-toolbar" style={{ marginBottom: "20px" }}>
-              <div style={{ flex: 1, display: "flex", alignItems: "center", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px" }}>
-                <Search size={16} color="#C7A98A" />
-                <input
-                  type="text"
-                  placeholder="Search vendor name or category..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ border: "none", outline: "none", width: "100%", padding: "10px", fontSize: "14px" }}
-                />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px" }}>
-                <Filter size={16} color="#C7A98A" />
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  style={{ border: "none", outline: "none", background: "transparent", padding: "10px 0", fontSize: "14px", color: "#2D1A0E" }}
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <MonitorVendors
-              onBack={() => navigate("dashboard", "dashboard")}
-              onVendorDetail={handleVendorDetail}
-              vendors={filteredVendors}
-              filterKey={JSON.stringify([searchQuery, categoryFilter])}
-              onEditListing={(v: Vendor) => setEditingVendor(v)}
-              onDeleteListing={handleDeleteListing}
-            />
+            <MonitorVendors onBack={() => navigate("dashboard", "dashboard")} onVendorDetail={handleVendorDetail}
+              onEditListing={(vendor) => setEditingVendor(vendor)} onDeleteListing={handleDeleteListing} />
           </div>
         );
 
@@ -740,11 +676,13 @@ function AdminDashboardApp() {
           <div className="admin-page">
             <div className="admin-toolbar" style={{ justifyContent: "space-between", marginBottom: "16px" }}>
               <h2 style={{ fontSize: "20px", color: "#2D1A0E", fontWeight: "bold" }}>User management</h2>
+              <Button type="button" variant="outline" onClick={userPagination.refresh} disabled={userPagination.loading}>Refresh</Button>
               <RecordSortSelect label="users" value={userSort} onChange={setUserSort} />
               <div style={{ display: "flex", alignItems: "center", background: "#fff", border: "1px solid #EDD9C6", borderRadius: "8px", padding: "0 12px", width: "260px" }}>
                 <Search size={16} color="#C7A98A" />
                 <input
                   type="text"
+                  aria-label="Search user name or email" maxLength={200}
                   placeholder="Search user name or email..."
                   value={userSearchQuery}
                   onChange={(e) => setUserSearchQuery(e.target.value)}
@@ -769,7 +707,7 @@ function AdminDashboardApp() {
                   marginBottom: "-2px"
                 }}
               >
-                All Users ({usersList.length})
+                All Users ({userPagination.summary?.accounts ?? "—"})
               </button>
               <button
                 onClick={() => setUserTypeFilter("customers")}
@@ -821,13 +759,15 @@ function AdminDashboardApp() {
               </button>
             </div>
 
-            {(emailLookupError || userActionError) && (
+            {userPagination.error && <div role="alert" className="mb-3 flex items-center gap-3 text-sm text-destructive">{userPagination.error}<Button type="button" variant="outline" onClick={userPagination.refresh}>Retry</Button></div>}
+            {userPagination.liveNotice && <p role="status" className="mb-3 text-sm text-muted-foreground">{userPagination.liveNotice}</p>}
+            {userActionError && (
               <p role="alert" style={{ margin: "0 0 12px", color: "#B42318", fontSize: "13px" }}>
-                {userActionError || emailLookupError}
+                {userActionError}
               </p>
             )}
 
-            <div className="admin-table" style={{ background: "#fff", border: "1px solid #EDD9C6", borderRadius: "12px" }}>
+            <div className="admin-table" aria-busy={userPagination.loading} style={{ background: "#fff", border: "1px solid #EDD9C6", borderRadius: "12px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                 <thead>
                   <tr style={{ background: "#FDF0E8", borderBottom: "1px solid #EDD9C6", color: "#7A5C2E", fontSize: "13px" }}>
@@ -840,10 +780,10 @@ function AdminDashboardApp() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.length === 0 ? (
+                  {userPagination.loading || userPagination.error || userPagination.items.length === 0 ? (
                     <tr>
                       <td colSpan={6} style={{ padding: "24px", textAlign: "center", color: "#C7A98A" }}>
-                        {userTypeFilter === "all" ? "No users found." : `No ${userTypeFilter} found.`}
+                        {userPagination.loading ? "Loading users…" : userPagination.error ? "Users could not be loaded." : userPagination.hasNext ? "No matches on this page. Select Next to keep searching." : userTypeFilter === "all" ? "No users found." : `No ${userTypeFilter} found.`}
                       </td>
                     </tr>
                   ) : (
@@ -905,7 +845,7 @@ function AdminDashboardApp() {
                 </tbody>
               </table>
             </div>
-            <RecordPagination label="users" {...userPagination} />
+            <CursorRecordPagination label="users" count={userPagination.items.length} {...userPagination} />
           </div>
         );
 

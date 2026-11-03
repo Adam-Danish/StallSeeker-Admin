@@ -3,6 +3,8 @@ const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const { HttpsError, onCall, onRequest } = require("firebase-functions/v2/https");
 const { readHistoryPage } = require("./historyPagination");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { VERSION: DIRECTORY_VERSION, COLLECTION: DIRECTORY_COLLECTION, readDirectoryPage, syncDirectoryAccount } = require("./adminDirectory");
 
 initializeApp();
 
@@ -35,6 +37,39 @@ async function requireAdmin(request) {
     email: String(request.auth.token.email ?? "").slice(0, 254),
   };
 }
+
+exports.syncAdminUserDirectory = onDocumentWritten({ document: "users/{uid}", region: "asia-southeast1", retry: true },
+  (event) => syncDirectoryAccount(firestore, auth, event.params.uid));
+exports.syncAdminVendorDirectory = onDocumentWritten({ document: "vendors/{uid}", region: "asia-southeast1", retry: true },
+  (event) => syncDirectoryAccount(firestore, auth, event.params.uid));
+
+exports.getAdminDirectoryPage = onCall({ region: "us-central1" }, async (request) => {
+  await requireAdmin(request);
+  const state = await firestore.doc("adminDirectoryMeta/state").get();
+  if (state.data()?.version !== DIRECTORY_VERSION || state.data()?.ready !== true) {
+    throw new HttpsError("failed-precondition", "The user and vendor directory is being prepared. Please try again shortly.");
+  }
+  try {
+    const page = await readDirectoryPage(firestore.collection(DIRECTORY_COLLECTION), request.data);
+    if (request.data?.includeSummary === true) {
+      const directory = firestore.collection(DIRECTORY_COLLECTION);
+      const count = async (query) => (await query.count().get()).data().count;
+      const [accounts, customers, vendors, admins, listings, open, categories] = await Promise.all([
+        count(directory.where("kind", "==", "account")),
+        ...["customer", "vendor", "admin"].map((role) => count(directory.where("kind", "==", "account").where("role", "==", role))),
+        count(directory.where("kind", "==", "vendor")),
+        count(directory.where("kind", "==", "vendor").where("isOpen", "==", true)),
+        firestore.collection("adminDirectoryCategories").get(),
+      ]);
+      page.summary = { accounts, customers, vendors, admins, listings, open, categories: categories.docs.map((doc) => doc.data().category).sort() };
+    }
+    return page;
+  } catch (error) {
+    if (error.code === "invalid-argument") throw new HttpsError("invalid-argument", error.message);
+    console.error("Unable to read admin directory page:", error);
+    throw new HttpsError("internal", "Unable to load this page. Please try again.");
+  }
+});
 
 exports.getVendorEmails = onCall({ region: "us-central1" }, async (request) => {
   await requireAdmin(request);
@@ -576,6 +611,9 @@ exports.adminUserAction = onRequest(
           if (error.code !== "auth/user-not-found") throw error;
         }
         await accountRef.delete();
+        await syncDirectoryAccount(firestore, auth, accountId).catch((error) => {
+          console.error("Account deleted; directory synchronization will be retried by the source trigger:", error);
+        });
         response.status(200).json({ success: true, action, authAccountDeleted: true });
         return;
       }
@@ -600,6 +638,9 @@ exports.adminUserAction = onRequest(
       }
 
       await accountRef.update({ isAccountDisabled: action === "disable" });
+      await syncDirectoryAccount(firestore, auth, accountId).catch((error) => {
+        console.error("Account updated; directory synchronization will be retried by the source trigger:", error);
+      });
       response.status(200).json({ success: true, action, authAccountUpdated: true });
     } catch (error) {
       console.error(`Failed to ${action} account ${accountId}:`, error);

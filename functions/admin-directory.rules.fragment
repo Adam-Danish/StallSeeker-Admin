@@ -1,0 +1,20 @@
+    // Server-owned admin directory. Merge inside the existing database document
+    // match; this fragment must never replace the project's complete rules.
+    function directoryAdmin() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return request.auth != null
+          && profile.get('role', profile.get('userRole', profile.get('type', ''))).lower() == 'admin';
+    }
+
+    match /adminDirectory/{entryId} {
+      allow read: if request.auth != null && directoryAdmin();
+      allow write: if false;
+    }
+
+    match /adminDirectoryCategories/{entryId} {
+      allow read, write: if false;
+    }
+
+    match /adminDirectoryMeta/{entryId} {
+      allow read, write: if false;
+    }

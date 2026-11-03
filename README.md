@@ -18,3 +18,7 @@ To deploy manually from an authenticated local Firebase CLI session:
 ```sh
 npm run deploy
 ```
+
+Before deploying the paginated Users/Vendors screens for the first time, follow
+the [directory service rollout](functions/README.md#user-and-vendor-directory-pagination)
+to deploy its Firebase indexes/functions and backfill existing accounts.

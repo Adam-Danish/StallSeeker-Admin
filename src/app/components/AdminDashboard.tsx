@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock3,
+  ChevronRight,
   Power,
   PowerOff,
   Store,
@@ -13,10 +14,12 @@ import { db } from "../../firebase";
 import { getRecordCreatedAt } from "../dateUtils";
 import { lookupAccountCreationDates } from "../userManagementApi";
 import { DashboardCharts, type DashboardPeriod, type DashboardVendor } from "./DashboardCharts";
+import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 
 interface Props {
   onMonitorVendors: () => void;
   onManageUsers: () => void;
+  onVendorSelect: (vendorId: string) => void;
 }
 
 interface DashboardUser {
@@ -44,8 +47,8 @@ const cardStyle = {
   boxShadow: "0 8px 24px rgba(45, 26, 14, 0.045)",
 };
 
-export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
-  const [vendors, setVendors] = useState<DashboardVendor[]>([]);
+export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect }: Props) {
+  const [vendors, setVendors] = useState<(DashboardVendor & { profileImageUrl: string })[]>([]);
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [vendorStatus, setVendorStatus] = useState<ListenerStatus>("connecting");
   const [userStatus, setUserStatus] = useState<ListenerStatus>("connecting");
@@ -66,6 +69,8 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
             return {
               id: doc.id,
               name: String(data.stallName ?? data.name ?? "").trim(),
+              profileImageUrl: [data.profileImageUrl, data.profilePictureUrl, data.photoURL, data.photoUrl, data.imageUrl, data.imageURL, data.image]
+                .find((value): value is string => typeof value === "string" && Boolean(value.trim()))?.trim() ?? "",
               category: String(data.category ?? "").trim(),
               openingHours: String(data.openingHours ?? data.hours ?? "").trim(),
               isOpen: data.isOpen === true,
@@ -180,6 +185,8 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
           .filter((vendor) => vendor.createdAt)
           .map((vendor) => ({
             id: `vendor-${vendor.id}`,
+            vendorId: vendor.id,
+            imageUrl: vendor.profileImageUrl,
             title: vendor.name || "Unnamed vendor",
             detail: "Vendor listing added",
             createdAt: vendor.createdAt as Date,
@@ -189,6 +196,8 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
           .filter((user) => user.createdAt)
           .map((user) => ({
             id: `user-${user.id}`,
+            vendorId: null,
+            imageUrl: "",
             title: user.name,
             detail: `${user.role === "vendor" ? "Vendor" : "User"} account registered`,
             createdAt: user.createdAt as Date,
@@ -212,11 +221,17 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
         ? "Some data could not be loaded"
         : "Connecting to live data";
 
+  // Match the Users and Analytics pages: include both collections once per account ID.
+  const registeredUserCount = useMemo(
+    () => new Set([...users.map((user) => user.id), ...vendors.map((vendor) => vendor.id)]).size,
+    [users, vendors]
+  );
+
   const summaryCards = [
     { label: "Total vendors", value: vendors.length, color: "#d95316", bg: "#fff0e8", icon: <Store size={19} /> },
     { label: "Open stalls", value: vendors.filter((vendor) => vendor.isOpen).length, color: "#15845b", bg: "#eaf6ef", icon: <Power size={19} /> },
     { label: "Offline stalls", value: vendors.filter((vendor) => !vendor.isOpen).length, color: "#c34b44", bg: "#fff0ed", icon: <PowerOff size={19} /> },
-    { label: "Registered users", value: users.length, color: "#785333", bg: "#f4efe7", icon: <Users size={19} /> },
+    { label: "Registered users", value: registeredUserCount, color: "#785333", bg: "#f4efe7", icon: <Users size={19} /> },
   ];
 
   return (
@@ -343,20 +358,31 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers }: Props) {
           </div>
           {recentActivity.length ? (
             <div className="flex flex-col">
-              {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-center gap-3 py-3" style={{ borderTop: "1px solid #f0ede7" }}>
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: "#fff0e8", color: "#d95316" }}>
-                    {activity.icon}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium" style={{ color: "#433a31" }}>{activity.title}</p>
-                    <p className="mt-0.5 text-xs" style={{ color: "#82766a" }}>{activity.detail}</p>
-                  </div>
-                  <time className="text-xs" style={{ color: "#948779", whiteSpace: "nowrap" }}>
-                    {formatActivityTime(activity.createdAt)}
-                  </time>
-                </div>
-              ))}
+              {recentActivity.map((activity) => {
+                const vendorId = activity.vendorId;
+                const Row = vendorId ? "button" : "div";
+                return (
+                  <Row key={activity.id}
+                    type={vendorId ? "button" : undefined}
+                    onClick={vendorId ? () => onVendorSelect(vendorId) : undefined}
+                    aria-label={vendorId ? `Inspect ${activity.title}` : undefined}
+                    className={`flex w-full items-center gap-3 py-3 text-left ${vendorId ? "cursor-pointer hover:bg-muted" : ""}`}
+                    style={{ borderTop: "1px solid #f0ede7" }}>
+                    <Avatar className="h-9 w-9 rounded-xl">
+                      <AvatarImage src={activity.imageUrl || undefined} alt={`${activity.title} profile`} className="object-cover" />
+                      <AvatarFallback className="rounded-xl bg-accent text-accent-foreground">{activity.icon}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium" style={{ color: "#433a31" }}>{activity.title}</p>
+                      <p className="mt-0.5 text-xs" style={{ color: "#82766a" }}>{activity.detail}</p>
+                    </div>
+                    <time className="text-xs" style={{ color: "#948779", whiteSpace: "nowrap" }}>
+                      {formatActivityTime(activity.createdAt)}
+                    </time>
+                    {vendorId && <ChevronRight size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />}
+                  </Row>
+                );
+              })}
             </div>
           ) : (
             <p className="py-3 text-sm" style={{ color: "#82766a" }}>

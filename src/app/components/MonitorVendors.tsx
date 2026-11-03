@@ -1,36 +1,19 @@
-import { useState, useEffect } from "react";
-import { Store, AlertTriangle, MapPin, ChevronRight, CheckCircle, Search, Phone } from "lucide-react";
-import { collection, onSnapshot } from "firebase/firestore";
-import { db } from "../../firebase";
+import { useState } from "react";
+import { Store, AlertTriangle, MapPin, ChevronRight, CheckCircle, Search, Phone, RefreshCw } from "lucide-react";
 import type { Vendor } from "./types";
-import { getRecordCreatedAt } from "../dateUtils";
-import { RecordPagination, RecordSortSelect } from "./RecordPagination";
-import { sortRecords, useRecordPagination, type RecordSort } from "../useRecordPagination";
+import { CursorRecordPagination, RecordSortSelect } from "./RecordPagination";
+import type { RecordSort } from "../useRecordPagination";
+import { useAdminDirectoryPage } from "../useAdminDirectoryPage";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 type Filter = "All" | "Open" | "Closed";
 
 interface Props {
   onBack: () => void;
   onVendorDetail: (vendor: Vendor) => void;
-  vendors?: Vendor[];
   onEditListing?: (vendor: Vendor) => void;
   onDeleteListing?: (id: string) => Promise<void>;
-  filterKey?: string;
-}
-
-function firstNonEmptyValue(...values: unknown[]): string {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-    if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  }
-  return "";
-}
-
-function firstImageUrl(...values: unknown[]): string {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
 }
 
 function VendorProfileImage({ vendor }: { vendor: Vendor }) {
@@ -60,100 +43,16 @@ function VendorProfileImage({ vendor }: { vendor: Vendor }) {
   );
 }
 
-export function MonitorVendors({
-  onBack,
-  onVendorDetail,
-  vendors: initialVendors,
-  onEditListing,
-  onDeleteListing,
-  filterKey = "",
-}: Props) {
-  const [liveVendors, setLiveVendors] = useState<Vendor[]>([]);
-  const vendors = initialVendors ?? liveVendors;
+export function MonitorVendors({ onVendorDetail }: Props) {
   const [filter, setFilter] = useState<Filter>("All");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<RecordSort>("newest");
-
-  useEffect(() => {
-    if (initialVendors !== undefined) return;
-
-    const unsubscribe = onSnapshot(collection(db, "vendors"), (snapshot) => {
-      const v = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        const latitude = Number(data.latitude ?? data.lat ?? 0);
-        const longitude = Number(data.longitude ?? data.lng ?? 0);
-
-        return {
-          id: doc.id,
-          vendorId: doc.id,
-          name: data.name || data.stallName || "Unknown",
-          stallName: data.stallName || data.name || "Unknown",
-          description: data.description || "",
-          category: data.category || "Unknown",
-          openingHours: data.openingHours || data.hours || "",
-          hours: data.hours || data.openingHours || "",
-          isOpen: Boolean(data.isOpen),
-          createdAt: getRecordCreatedAt(data),
-          latitude: Number.isFinite(latitude) ? latitude : 0,
-          longitude: Number.isFinite(longitude) ? longitude : 0,
-          lat: Number.isFinite(latitude) ? latitude : 0,
-          lng: Number.isFinite(longitude) ? longitude : 0,
-          imageUrl: firstImageUrl(
-            data.profileImageUrl,
-            data.profilePictureUrl,
-            data.photoURL,
-            data.photoUrl,
-            data.imageUrl,
-            data.imageURL,
-            data.image
-          ),
-          profileImageUrl: firstImageUrl(
-            data.profileImageUrl,
-            data.profilePictureUrl,
-            data.photoURL,
-            data.photoUrl,
-            data.imageUrl,
-            data.imageURL,
-            data.image
-          ),
-          phoneNumber: firstNonEmptyValue(
-            data.phoneNumber,
-            data.phone_number,
-            data.phone,
-            data.mobileNumber,
-            data.mobile_number,
-            data.mobile,
-            data.contactNumber,
-            data.contact_number,
-            data.telephone,
-            data.contact
-          ),
-        } as Vendor;
-      });
-      setLiveVendors(v);
-    });
-
-    return () => unsubscribe();
-  }, [initialVendors]);
-
-  const filtered = sortRecords(vendors.filter((v) => {
-    const matchFilter =
-      filter === "All" ||
-      (filter === "Open" && v.isOpen) ||
-      (filter === "Closed" && !v.isOpen);
-    const matchSearch =
-      search === "" ||
-      (v.stallName || v.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (v.category || "").toLowerCase().includes(search.toLowerCase()) ||
-      (v.phoneNumber || "").toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
-  }), sort, (vendor) => ({
-    id: vendor.id ?? vendor.vendorId ?? "", name: vendor.stallName || vendor.name || "Vendor", date: vendor.createdAt,
-  }));
-  const pagination = useRecordPagination(filtered, JSON.stringify([filter, search, sort, filterKey]));
-
-  const openCount = vendors.filter(v => v.isOpen).length;
-  const closedCount = vendors.length - openCount;
+  const [category, setCategory] = useState("All");
+  const pagination = useAdminDirectoryPage<Vendor>({ kind: "vendor", status: filter, search, sort, category });
+  const total = pagination.summary?.listings;
+  const openCount = pagination.summary?.open;
+  const closedCount = total === undefined || openCount === undefined ? undefined : total - openCount;
+  const categories = Array.from(new Set(["All", category, ...(pagination.summary?.categories ?? [])]));
 
   return (
     <div>
@@ -168,9 +67,9 @@ export function MonitorVendors({
       {/* Stats row */}
       <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
         {[
-          { label: "Total Vendors", value: vendors.length.toString(), color: "#2D1A0E", bg: "#fff" },
-          { label: "Open Now", value: openCount.toString(), color: "#27AE60", bg: "#EAF7EE" },
-          { label: "Closed", value: closedCount.toString(), color: "#EB5757", bg: "#FDEADE" },
+          { label: "Total Vendors", value: total?.toString() ?? "—", color: "#2D1A0E", bg: "#fff" },
+          { label: "Open Now", value: openCount?.toString() ?? "—", color: "#27AE60", bg: "#EAF7EE" },
+          { label: "Closed", value: closedCount?.toString() ?? "—", color: "#EB5757", bg: "#FDEADE" },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl p-4 flex items-center gap-4" style={{ background: s.bg, border: "1px solid #EDD9C6" }}>
             <p style={{ fontSize: "28px", fontWeight: 700, color: s.color }}>{s.value}</p>
@@ -180,41 +79,46 @@ export function MonitorVendors({
       </div>
 
       {/* Toolbar */}
-      <div className="admin-toolbar mb-4">
-        <div className="flex gap-2">
+      <div className="admin-vendor-toolbar mb-4" role="group" aria-label="Vendor filters">
+        <div className="admin-vendor-status" role="group" aria-label="Vendor status">
           {(["All", "Open", "Closed"] as Filter[]).map((f) => (
-            <button
+            <Button
               key={f}
+              type="button"
               onClick={() => setFilter(f)}
-              className="px-4 py-2 rounded-xl active:opacity-80"
-              style={{
-                background: filter === f ? "#F05A1A" : "#fff",
-                color: filter === f ? "#fff" : "#9B7B5B",
-                border: filter === f ? "none" : "1px solid #EDD9C6",
-                fontSize: "13px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+              variant={filter === f ? "default" : "outline"}
+              aria-pressed={filter === f}
+              className="h-11"
             >
               {f}
-            </button>
+            </Button>
           ))}
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "#fff", border: "1px solid #EDD9C6", width: "240px" }}>
-          <Search size={14} color="#C7A98A" />
-          <input
-            type="text"
-            aria-label="Search vendors" placeholder="Search vendors..."
+        <div className="admin-vendor-search">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            type="search"
+            aria-label="Search vendors" placeholder="Name, category or phone..." maxLength={200}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ border: "none", outline: "none", background: "transparent", fontSize: "13px", color: "#2D1A0E", width: "100%" }}
+            className="h-11 pl-9"
           />
         </div>
-        <RecordSortSelect label="vendors" value={sort} onChange={setSort} />
+        <select aria-label="Filter vendors by category" value={category} onChange={(event) => setCategory(event.target.value)} className="admin-vendor-category h-11 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+          {categories.map((value) => <option key={value} value={value}>{value === "All" ? "All categories" : value}</option>)}
+        </select>
+        <div className="admin-vendor-actions">
+          <Button type="button" variant="outline" className="h-11" onClick={pagination.refresh} disabled={pagination.loading}>
+            <RefreshCw aria-hidden="true" /> Refresh
+          </Button>
+          <RecordSortSelect label="vendors" value={sort} onChange={setSort} />
+        </div>
       </div>
 
+      {pagination.error && <div role="alert" className="mb-4 flex items-center gap-3 text-sm text-destructive">{pagination.error}<Button type="button" variant="outline" onClick={pagination.refresh}>Retry</Button></div>}
+      {pagination.liveNotice && <p role="status" className="mb-4 text-sm text-muted-foreground">{pagination.liveNotice}</p>}
       {/* Vendor Cards Grid */}
-      <div className="admin-vendor-grid">
+      <div className="admin-vendor-grid" aria-busy={pagination.loading}>
         {pagination.items.map((vendor) => (
           <div
             key={vendor.vendorId}
@@ -283,8 +187,9 @@ export function MonitorVendors({
           </div>
         ))}
       </div>
-      {!filtered.length && <p className="py-8 text-center text-sm text-muted-foreground">No vendors match these filters.</p>}
-      <RecordPagination label="vendors" {...pagination} />
+      {pagination.loading && <p role="status" className="py-8 text-center text-sm text-muted-foreground">Loading vendors…</p>}
+      {!pagination.loading && !pagination.error && !pagination.items.length && <p className="py-8 text-center text-sm text-muted-foreground">{pagination.hasNext ? "No matches on this page. Select Next to keep searching." : "No vendors match these filters."}</p>}
+      <CursorRecordPagination label="vendors" count={pagination.items.length} {...pagination} />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firesto
 import { db } from '../../firebase';
 import { Utensils, Plus, Trash2, ArrowLeft, Power, Star, Store, ImageOff } from 'lucide-react';
 import type { Vendor } from './types';
+import { VendorLocationMap } from './VendorLocationMap';
+import { getVendorCoordinates } from '../vendorLocation';
 
 interface MenuItem {
   id: string;
@@ -77,8 +79,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
   const vendorCategory = vendor.category || 'General';
   const vendorHours = vendor.openingHours || vendor.hours || '8:00 AM - 5:00 PM';
   const vendorPhone = vendor.phoneNumber || '';
-  const vendorLatitude = vendor.latitude ?? vendor.lat ?? 0;
-  const vendorLongitude = vendor.longitude ?? vendor.lng ?? 0;
+  const vendorCoordinates = getVendorCoordinates(vendor);
   const vendorStatus = Boolean(vendor.isOpen);
 
   // Fetch menu subcollection in real-time
@@ -191,7 +192,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
           <div style={{ minWidth: 0 }}>
             <h2 style={{ margin: 0, fontSize: '24px', color: '#2D1A0E' }}>{vendorName}</h2>
             <p style={{ margin: 0, color: '#C7A98A', fontSize: '14px' }}>
-              {vendorLatitude}, {vendorLongitude}
+              {vendorCoordinates ? vendorCoordinates.join(', ') : 'Location not provided'}
             </p>
           </div>
         </div>
@@ -242,6 +243,8 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
           )}
         </div>
       </div>
+
+      <VendorLocationMap vendor={vendor} />
 
       {/* 🍔 MANAGE MENU SECTION */}
       <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #EDD9C6', padding: '24px', marginBottom: '24px' }}>

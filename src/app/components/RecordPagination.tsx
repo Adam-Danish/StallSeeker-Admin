@@ -65,3 +65,30 @@ export function RecordSortSelect({ label, value, onChange, nameLabel = "Name" }:
     </div>
   );
 }
+
+export function CursorRecordPagination({ label, page, pageSize, hasNext, count, loading, error, onPageChange, onPageSizeChange }: {
+  label: string; page: number; pageSize: number; hasNext: boolean; count: number;
+  loading: boolean; error: string | null;
+  onPageChange: (page: number) => void; onPageSizeChange: (size: number) => void;
+}) {
+  const sizeId = useId();
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-4 text-sm text-muted-foreground">
+      <p role="status" aria-live="polite">{loading ? "Loading page…" : error ? "Page unavailable" : `${count} ${label} on this page`}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <label htmlFor={sizeId}>Per page</label>
+        <select id={sizeId} value={pageSize} onChange={(event) => onPageSizeChange(Number(event.target.value))}
+          className="rounded-md border border-border bg-background px-2 py-2 text-foreground">
+          {[10, 25, 50].map((size) => <option key={size} value={size}>{size}</option>)}
+        </select>
+        <Pagination className="mx-0 w-auto" aria-label={`${label} pages`}>
+          <PaginationContent>
+            <PaginationItem><Button type="button" variant="outline" disabled={loading || !!error || page <= 1} onClick={() => onPageChange(page - 1)} aria-label={`Previous ${label} page`}><ChevronLeft aria-hidden="true" /> Previous</Button></PaginationItem>
+            <PaginationItem><span className="px-2">Page {page}</span></PaginationItem>
+            <PaginationItem><Button type="button" variant="outline" disabled={loading || !!error || !hasNext} onClick={() => onPageChange(page + 1)} aria-label={`Next ${label} page`}>Next <ChevronRight aria-hidden="true" /></Button></PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
+    </div>
+  );
+}
