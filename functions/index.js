@@ -287,6 +287,8 @@ async function listActivityPage(options) {
 }
 
 const BOOKING_HISTORY_FIELDS = [
+  "transactionEmailStatus",
+  "transactionEmailUpdatedAt",
   "bookingId",
   "bookingID",
   "reference",

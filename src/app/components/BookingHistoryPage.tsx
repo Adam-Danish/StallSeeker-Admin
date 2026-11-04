@@ -6,13 +6,21 @@ import {
   Clock3,
   CreditCard,
   History,
+  ReceiptText,
   RefreshCw,
   Search,
 } from "lucide-react";
-import { getBookingHistory } from "../bookingHistoryApi";
+import { getBookingHistory, downloadBookingReceipt } from "../bookingHistoryApi";
 import { getRecordCreatedAt } from "../dateUtils";
 import { RecordPagination, RecordSortSelect } from "./RecordPagination";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog";
 import { sortRecords, useRecordPagination, type RecordSort } from "../useRecordPagination";
+
+interface ReceiptItem {
+  name: string;
+  quantity: number;
+  unitPriceCents: number;
+}
 
 interface BookingRecord {
   id: string;
@@ -26,6 +34,12 @@ interface BookingRecord {
   date: Date | null;
   amount: string;
   searchText: string;
+  receiptPaidAt: Date | null;
+  refundedCents: number;
+  receiptItems: ReceiptItem[];
+  totalCents: number | null;
+  hasReceipt: boolean;
+  emailStatus: string;
 }
 
 const cardStyle = {
@@ -137,6 +151,22 @@ function formatDate(date: Date | null): string {
   });
 }
 
+function formatMoney(cents: number): string {
+  return new Intl.NumberFormat("en-MY", { style: "currency", currency: "MYR" }).format(cents / 100);
+}
+
+function getReceiptItems(data: Record<string, unknown>): ReceiptItem[] {
+  if (!Array.isArray(data.items)) return [];
+  return data.items
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .filter((item) => typeof item.name === "string" && typeof item.quantity === "number" && typeof item.unitPriceCents === "number")
+    .map((item) => ({
+      name: String(item.name),
+      quantity: Number(item.quantity),
+      unitPriceCents: Number(item.unitPriceCents),
+    }));
+}
+
 function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
   const reference = firstString(data, ["bookingId", "bookingID", "reference", "transactionId", "paymentId"], id);
   const paymentReference = firstString(data, ["paymentReference"], "");
@@ -155,6 +185,11 @@ function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
   const bookingStage = firstString(data, ["status", "bookingStatus", "state"], "");
   const date = getBookingDate(data);
   const amount = getAmount(data);
+  const receiptPaidAt = parseDate(data.paymentPaidAt);
+  const refundedCents = typeof data.paymentRefundedCents === "number" ? data.paymentRefundedCents : 0;
+  const totalCents = typeof data.totalCents === "number" ? data.totalCents : null;
+  const receiptItems = getReceiptItems(data);
+  const hasReceipt = data.paymentMode === "test" && receiptPaidAt !== null;
 
   return {
     id,
@@ -168,7 +203,64 @@ function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
     date,
     amount,
     searchText: [reference, paymentReference, itemsSummary, customer, vendor, status, bookingStage, amount].join(" ").toLowerCase(),
+    receiptPaidAt,
+    refundedCents,
+    receiptItems,
+    totalCents,
+    hasReceipt,
+    emailStatus: firstString(data, ["transactionEmailStatus"], "Not recorded"),
   };
+}
+
+function BookingReceiptDetails({ booking }: { booking: BookingRecord }) {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  async function downloadPdf() {
+    setDownloading(true);
+    setDownloadError(null);
+    try { await downloadBookingReceipt(booking.id); }
+    catch (_) { setDownloadError("Could not download the PDF receipt. Please try again."); }
+    finally { setDownloading(false); }
+  }
+  const remainingCents = booking.totalCents === null ? null : Math.max(0, booking.totalCents - booking.refundedCents);
+  return (
+    <div className="space-y-4 text-sm" style={{ color: "#433a31" }}>
+      <button type="button" onClick={downloadPdf} disabled={downloading}
+        className="rounded-lg border px-4 py-2 font-semibold disabled:opacity-60">
+        {downloading ? "Preparing PDF…" : "Download PDF"}
+      </button>
+      {downloadError && <p role="alert">{downloadError}</p>}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div><div className="text-xs" style={{ color: "#82766a" }}>Customer</div><div>{booking.customer}</div></div>
+        <div><div className="text-xs" style={{ color: "#82766a" }}>Stall</div><div>{booking.vendor}</div></div>
+        <div><div className="text-xs" style={{ color: "#82766a" }}>Paid on</div><div>{formatDate(booking.receiptPaidAt)}</div></div>
+        <div><div className="text-xs" style={{ color: "#82766a" }}>Booking ID</div><div className="break-all">{booking.id}</div></div>
+      </div>
+      {booking.paymentReference && (
+        <div><div className="text-xs" style={{ color: "#82766a" }}>Payment reference</div><div className="break-all">{booking.paymentReference}</div></div>
+      )}
+      <div className="border-t pt-4" style={{ borderColor: "#e9e5dd" }}>
+        <h4 className="mb-3 font-semibold">Items</h4>
+        {booking.receiptItems.map((item, index) => (
+          <div key={`${item.name}-${index}`} className="flex justify-between gap-4 py-1">
+            <div>{item.quantity} × {item.name}<div className="text-xs" style={{ color: "#82766a" }}>{formatMoney(item.unitPriceCents)} each</div></div>
+            <span>{formatMoney(item.unitPriceCents * item.quantity)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2 border-t pt-4 font-semibold" style={{ borderColor: "#e9e5dd" }}>
+        <div className="flex justify-between gap-4"><span>Amount paid</span><span>{booking.amount}</span></div>
+        {booking.refundedCents > 0 && (
+          <>
+            <div className="flex justify-between gap-4"><span>Refunded</span><span>{formatMoney(booking.refundedCents)}</span></div>
+            {remainingCents !== null && <div className="flex justify-between gap-4"><span>Remaining paid</span><span>{formatMoney(remainingCents)}</span></div>}
+          </>
+        )}
+      </div>
+      {(booking.status !== "paid" || booking.refundedCents > 0) && <p>Current status: {booking.status}</p>}
+      <p className="text-xs" style={{ color: "#82766a" }}>Stripe test payment</p>
+    </div>
+  );
 }
 
 export function BookingHistoryPage() {
@@ -180,6 +272,7 @@ export function BookingHistoryPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [sort, setSort] = useState<RecordSort>("newest");
   const [loadedCount, setLoadedCount] = useState(0);
+  const [selectedReceipt, setSelectedReceipt] = useState<BookingRecord | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -355,8 +448,18 @@ export function BookingHistoryPage() {
                             Ref: {booking.paymentReference}
                           </div>
                         )}
+                        {booking.hasReceipt && (
+                          <button type="button" onClick={() => setSelectedReceipt(booking)}
+                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold underline"
+                            style={{ color: "#d95316" }}>
+                            <ReceiptText size={14} /> View receipt
+                          </button>
+                        )}
                       </td>
-                      <td className="px-5 py-4" style={{ color: "#655848" }}>{booking.customer}</td>
+                      <td className="px-5 py-4" style={{ color: "#655848" }}>
+                        {booking.customer}
+                        <div className="mt-1 text-xs">Email: {booking.emailStatus.replaceAll('_', ' ')}</div>
+                      </td>
                       <td className="px-5 py-4" style={{ color: "#655848" }}>{booking.vendor}</td>
                       <td className="px-5 py-4" style={{ color: "#655848" }}>{formatDate(booking.date)}</td>
                       <td className="px-5 py-4 font-medium" style={{ color: "#433a31" }}>{booking.amount}</td>
@@ -395,6 +498,15 @@ export function BookingHistoryPage() {
         )}
         {!loading && !error && <RecordPagination label="bookings" {...pagination} />}
       </section>
+      <Dialog open={selectedReceipt !== null} onOpenChange={(open) => { if (!open) setSelectedReceipt(null); }}>
+        <DialogContent className="max-h-[calc(100dvh-32px)] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment receipt</DialogTitle>
+            <DialogDescription>StallSeeker booking payment record</DialogDescription>
+          </DialogHeader>
+          {selectedReceipt && <BookingReceiptDetails key={selectedReceipt.id} booking={selectedReceipt} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

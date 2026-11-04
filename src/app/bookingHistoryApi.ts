@@ -7,6 +7,22 @@ export interface BookingHistoryItem {
   data: Record<string, unknown>;
 }
 
+export async function downloadBookingReceipt(bookingId: string): Promise<void> {
+  const getReceipt = httpsCallable<{ bookingId: string }, { pdfBase64: string; filename: string }>(
+    getFunctions(auth.app, "us-central1"), "getBookingReceipt"
+  );
+  const { data } = await getReceipt({ bookingId });
+  const bytes = Uint8Array.from(atob(data.pdfBase64), (character) => character.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = data.filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 interface BookingHistoryResponse {
   bookings?: unknown;
   paginationVersion?: number;
