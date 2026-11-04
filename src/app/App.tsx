@@ -760,7 +760,6 @@ function AdminDashboardApp() {
             </div>
 
             {userPagination.error && <div role="alert" className="mb-3 flex items-center gap-3 text-sm text-destructive">{userPagination.error}<Button type="button" variant="outline" onClick={userPagination.refresh}>Retry</Button></div>}
-            {userPagination.liveNotice && <p role="status" className="mb-3 text-sm text-muted-foreground">{userPagination.liveNotice}</p>}
             {userActionError && (
               <p role="alert" style={{ margin: "0 0 12px", color: "#B42318", fontSize: "13px" }}>
                 {userActionError}

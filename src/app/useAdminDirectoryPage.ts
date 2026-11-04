@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { collection, documentId, onSnapshot, query, where } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
 import type { Vendor } from "./components/types";
 import type { UserProfileCollection } from "./userManagementApi";
 import type { RecordSort } from "./useRecordPagination";
@@ -56,6 +55,7 @@ function errorMessage(error: unknown): string {
 
 // Only the active page is retained. Cursors let Previous re-query earlier pages
 // without accumulating profiles in memory or fetching intervening records.
+// Keep the page stable: refetch only for navigation, filters, or an explicit refresh.
 export function useAdminDirectoryPage<T extends Vendor | UserAccount>(options: DirectoryOptions, enabled = true) {
   const [search, setSearch] = useState(options.search);
   useEffect(() => {
@@ -75,7 +75,6 @@ export function useAdminDirectoryPage<T extends Vendor | UserAccount>(options: D
   const [summary, setSummary] = useState<DirectorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [liveNotice, setLiveNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) {
@@ -107,45 +106,11 @@ export function useAdminDirectoryPage<T extends Vendor | UserAccount>(options: D
     return () => { active = false; };
   }, [queryKey, cursor, requestKey, revision, enabled]);
 
-  // Refresh insertions and changes outside the visible page without keeping a
-  // whole-collection listener alive. Hidden tabs do not poll.
-  useEffect(() => {
-    if (!enabled) return;
-    const onVisible = () => { if (!document.hidden) refresh(); };
-    const timer = window.setInterval(onVisible, 30_000);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
-  }, [enabled, refresh]);
-
-  const idsKey = JSON.stringify(result.key === requestKey ? result.items.map((item) => item.id).sort() : []);
-  useEffect(() => {
-    if (!enabled) return;
-    const ids = JSON.parse(idsKey) as string[];
-    if (!ids.length) return;
-    const timers = new Set<number>();
-    const schedule = () => {
-      timers.forEach(window.clearTimeout);
-      timers.clear();
-      timers.add(window.setTimeout(refresh, 300));
-    };
-    const unsubscribes: Array<() => void> = [];
-    setLiveNotice(null);
-    const directoryIds = ids.map((id) => `${options.kind}_${id}`);
-    for (let offset = 0; offset < directoryIds.length; offset += 30) {
-      let firstSnapshot = true;
-      unsubscribes.push(onSnapshot(query(collection(db, "adminDirectory"), where(documentId(), "in", directoryIds.slice(offset, offset + 30))), (snapshot) => {
-        if (firstSnapshot) { firstSnapshot = false; return; }
-        if (snapshot.docChanges().length) schedule();
-      }, () => setLiveNotice("Live updates are unavailable. Use Refresh to check for changes.")));
-    }
-    return () => { unsubscribes.forEach((unsubscribe) => unsubscribe()); timers.forEach(window.clearTimeout); };
-  }, [enabled, idsKey, refresh, options.kind]);
-
   const pending = enabled && (loading || result.key !== requestKey || search !== options.search);
   const items = enabled && result.key === requestKey && !error ? result.items : [];
   const nextCursor = result.key === requestKey ? result.nextCursor : null;
   return {
-    items, summary, loading: pending && !error, error, liveNotice, refresh,
+    items, summary, loading: pending && !error, error, refresh,
     page: current.index + 1, pageSize, hasNext: nextCursor !== null,
     onPageSizeChange: setPageSize,
     onPageChange: (page: number) => {

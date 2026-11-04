@@ -8,7 +8,8 @@
     "test:pagination": "node --test tests/history-pagination.test.mjs",
     "build": "vite build",
     "dev": "vite",
-    "deploy": "vite build && npx firebase-tools deploy --only hosting"
+    "deploy:history": "npx firebase-tools deploy --only functions:getBookingHistory,functions:adminActivity,functions:getAdminActivity --project stallseeker-c2ffe",
+    "deploy": "vite build && npm run deploy:history && npx firebase-tools deploy --only hosting --project stallseeker-c2ffe"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

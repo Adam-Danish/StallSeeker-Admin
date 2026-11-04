@@ -116,7 +116,6 @@ export function MonitorVendors({ onVendorDetail }: Props) {
       </div>
 
       {pagination.error && <div role="alert" className="mb-4 flex items-center gap-3 text-sm text-destructive">{pagination.error}<Button type="button" variant="outline" onClick={pagination.refresh}>Retry</Button></div>}
-      {pagination.liveNotice && <p role="status" className="mb-4 text-sm text-muted-foreground">{pagination.liveNotice}</p>}
       {/* Vendor Cards Grid */}
       <div className="admin-vendor-grid" aria-busy={pagination.loading}>
         {pagination.items.map((vendor) => (

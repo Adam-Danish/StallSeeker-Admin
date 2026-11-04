@@ -112,7 +112,7 @@ export function ActivityLogPage() {
       ].some((value) => value.toLowerCase().includes(normalizedSearch));
     }), sort, (entry) => ({ id: entry.id, name: entry.entityName, date: entry.createdAt }));
   }, [actionFilter, entries, search, sort]);
-  const pagination = useRecordPagination(filteredEntries, JSON.stringify([search, actionFilter, sort, reloadKey]));
+  const pagination = useRecordPagination(filteredEntries, JSON.stringify([search, actionFilter, sort]));
 
   return (
     <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-10">

@@ -229,7 +229,7 @@ export function BookingHistoryPage() {
       (!normalizedSearch || booking.searchText.includes(normalizedSearch))
     ), sort, (booking) => ({ id: booking.id, name: booking.customer, date: booking.date }));
   }, [bookings, search, statusFilter, sort]);
-  const pagination = useRecordPagination(filteredBookings, JSON.stringify([search, statusFilter, sort, reloadKey]));
+  const pagination = useRecordPagination(filteredBookings, JSON.stringify([search, statusFilter, sort]));
   const paidCount = bookings.filter((booking) => isPaidStatus(booking.status)).length;
   const pendingCount = bookings.filter((booking) => isPendingStatus(booking.status)).length;
   const summaryCards = [

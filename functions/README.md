@@ -55,13 +55,12 @@ candidate count as an exact match count. The role-tab and vendor summary totals
 are global aggregate counts, not the size of the loaded page. Category options
 come from transactional category counts in `adminDirectoryCategories`.
 
-Current-page directory records have bounded live listeners (UID chunks of 30)
-using the administrator-only read rule in `admin-directory.rules.fragment`.
-New records and changes outside the page are picked up every 30 seconds while the
-tab is visible, on returning to the tab, or using Refresh. Account management
-also synchronizes its directory entry before responding, with the source
-trigger retrying if that synchronization fails. Page queries use the admin-only
-callable; directory listeners read only the current page directly. Client
+User and vendor lists load on entry and when changing pages or filters. They
+refresh only when the administrator presses Refresh or completes an account
+change. There is no polling, tab-visibility refresh, or live list subscription.
+Account management also synchronizes its directory entry before responding,
+with the source trigger retrying if that synchronization fails. Page queries
+use the admin-only callable. Client
 writes to all derived collections remain denied.
 These server-owned collections (`adminDirectory`, `adminDirectoryCategories`,
 `adminDirectoryMeta`) must not allow client writes or non-admin reads in the
