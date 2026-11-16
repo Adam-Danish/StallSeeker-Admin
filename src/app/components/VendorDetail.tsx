@@ -4,6 +4,7 @@ import { db } from '../../firebase';
 import { Utensils, Plus, Trash2, ArrowLeft, Power, Star, Store, ImageOff } from 'lucide-react';
 import type { Vendor } from './types';
 import { VendorLocationMap } from './VendorLocationMap';
+import { VendorPayoutSection } from './VendorPayoutSection';
 import { getVendorCoordinates } from '../vendorLocation';
 
 interface MenuItem {
@@ -245,6 +246,8 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
       </div>
 
       <VendorLocationMap vendor={vendor} />
+
+      {vendorId && <VendorPayoutSection vendorId={vendorId} stallName={vendorName} />}
 
       {/* 🍔 MANAGE MENU SECTION */}
       <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #EDD9C6', padding: '24px', marginBottom: '24px' }}>
