@@ -1,11 +1,13 @@
 import { ArrowLeft, AlertTriangle, X, CheckCircle, Store, RefreshCw } from "lucide-react";
 import type { AdminAction, Vendor } from "./types";
+import { useState } from "react";
+import { moderationError } from "../moderationApi";
 
 interface Props {
   action: AdminAction;
   vendor: Vendor;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (reason: string) => Promise<void>;
 }
 
 const CONFIG = {
@@ -35,6 +37,17 @@ const CONFIG = {
 
 export function ActionConfirmation({ action, vendor, onCancel, onConfirm }: Props) {
   const cfg = CONFIG[action];
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const confirm = async () => {
+    if (saving || !reason.trim()) return;
+    setSaving(true); setError(null);
+    try { await onConfirm(reason.trim()); }
+    catch (failure) {
+      setError(failure instanceof Error && !('code' in failure) ? failure.message : moderationError(failure));
+    } finally { setSaving(false); }
+  };
 
   return (
     <div className="p-4 sm:p-8 flex items-start justify-center">
@@ -117,14 +130,19 @@ export function ActionConfirmation({ action, vendor, onCancel, onConfirm }: Prop
             >
               <AlertTriangle size={14} color="#F2994A" className="flex-shrink-0 mt-0.5" />
               <p style={{ fontSize: "12px", color: "#7A5C2E", lineHeight: "1.6" }}>
-                The vendor will be notified via email and in-app message once this action is confirmed.
+                Suspension requires an overdue warning. Check the correction before restoring a listing. The vendor receives an in-app notice and a push notification where available.
               </p>
             </div>
 
+            <label htmlFor="listing-action-reason" className="mb-2 block text-sm font-semibold">Admin reason</label>
+            <textarea id="listing-action-reason" className="mb-4 w-full rounded-lg border p-3" rows={4}
+              maxLength={1000} disabled={saving} value={reason} onChange={(event) => setReason(event.target.value)} />
+            {error && <p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
             {/* Action buttons */}
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={onCancel}
+                disabled={saving}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl active:opacity-80"
                 style={{ background: "#fff", border: "1px solid #EDD9C6", cursor: "pointer" }}
               >
@@ -132,12 +150,13 @@ export function ActionConfirmation({ action, vendor, onCancel, onConfirm }: Prop
                 <span style={{ color: "#9B7B5B", fontSize: "14px", fontWeight: 600 }}>Cancel</span>
               </button>
               <button
-                onClick={onConfirm}
+                onClick={() => void confirm()}
+                disabled={saving || !reason.trim()}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl active:opacity-80"
                 style={{ background: cfg.confirmBg, border: "none", cursor: "pointer" }}
               >
                 <CheckCircle size={16} color="#fff" />
-                <span style={{ color: "#fff", fontSize: "14px", fontWeight: 600 }}>{cfg.confirmLabel}</span>
+                <span style={{ color: "#fff", fontSize: "14px", fontWeight: 600 }}>{saving ? 'Saving…' : cfg.confirmLabel}</span>
               </button>
             </div>
           </div>

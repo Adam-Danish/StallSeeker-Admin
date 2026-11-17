@@ -25,6 +25,7 @@ interface VendorDetailProps {
   vendor: Vendor;
   onBack: () => void;
   onSuspend: () => void;
+  onReports: () => void;
   onReactivate: () => void;
 }
 
@@ -66,6 +67,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
   vendor,
   onBack,
   onSuspend,
+  onReports,
   onReactivate,
 }) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -81,6 +83,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
   const vendorPhone = vendor.phoneNumber || '';
   const vendorCoordinates = getVendorCoordinates(vendor);
   const vendorStatus = Boolean(vendor.isOpen);
+  const suspended = vendor.listingStatus === 'suspended';
 
   // Fetch menu subcollection in real-time
   useEffect(() => {
@@ -197,7 +200,7 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
           </div>
         </div>
         <button
-          onClick={vendorStatus ? onSuspend : onReactivate}
+          onClick={suspended ? onReactivate : onSuspend}
           style={{
             background: vendorStatus ? '#EF4444' : '#10B981',
             color: '#fff',
@@ -212,10 +215,12 @@ export const VendorDetail: React.FC<VendorDetailProps> = ({
           }}
         >
           <Power size={16} />
-          {vendorStatus ? 'Mark as Closed' : 'Mark as Open'}
+          {suspended ? 'Approve restoration' : 'Suspend listing'}
         </button>
       </div>
 
+      <button type="button" onClick={onReports} className="mb-4 rounded-lg border px-4 py-2 font-medium">Reports & warning history</button>
+      {suspended && <p role="status" className="mb-4 rounded-xl bg-red-50 p-3 text-red-800">Listing suspended. Customer visibility and new bookings are blocked.</p>}
       {/* Info Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #EDD9C6' }}>

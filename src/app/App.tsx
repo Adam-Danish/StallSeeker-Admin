@@ -15,7 +15,8 @@ import {
   Phone,
   Trash2,
   UserX,
-  UserCheck
+  UserCheck,
+  Flag
 } from "lucide-react";
 import { collection, onSnapshot, doc, getDoc, updateDoc, deleteDoc, type DocumentData } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -39,12 +40,14 @@ import { AdminLogin } from "./components/AdminLogin";
 import type { DashboardVendor } from "./components/DashboardCharts";
 import { MonitorVendors } from "./components/MonitorVendors";
 import { VendorDetail } from "./components/VendorDetail";
+import { ReportsPage } from "./components/ReportsPage";
+import { decideCase } from "./moderationApi";
 import { ActionConfirmation } from "./components/ActionConfirmation";
 import { LiveVendorMap } from "./LiveMap";
 import type { Vendor, AdminAction } from "./components/types";
 
-type Screen = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
-type NavTab = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users";
+type Screen = "reports" | "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
+type NavTab = "reports" | "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users";
 
 function firstNonEmptyString(...values: unknown[]): string {
   for (const value of values) {
@@ -91,6 +94,7 @@ function vendorFromData(id: string, data: DocumentData): Vendor {
     openingHours: data.openingHours || data.hours || "",
     hours: data.hours || data.openingHours || "",
     isOpen: Boolean(data.isOpen),
+    listingStatus: data.listingStatus === "suspended" ? "suspended" : "active",
     latitude: Number.isFinite(latitude) ? latitude : 0,
     longitude: Number.isFinite(longitude) ? longitude : 0,
     lat: Number.isFinite(latitude) ? latitude : 0,
@@ -165,6 +169,7 @@ function AdminDashboardApp() {
   const [userActionError, setUserActionError] = useState<string | null>(null);
   const [activeUserActionId, setActiveUserActionId] = useState<string | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [reportVendorId, setReportVendorId] = useState<string | undefined>();
   const [pendingAction, setPendingAction] = useState<AdminAction>("suspend");
 
   // Search & Filter State
@@ -463,6 +468,7 @@ function AdminDashboardApp() {
     setActiveTab(tab);
     if (tab === "dashboard") setScreen("dashboard");
     if (tab === "analytics") setScreen("analytics");
+    if (tab === "reports") { setReportVendorId(undefined); setScreen("reports"); }
     if (tab === "map") setScreen("map");
     if (tab === "activity-log") setScreen("activity-log");
     if (tab === "booking-history") setScreen("booking-history");
@@ -481,8 +487,8 @@ function AdminDashboardApp() {
   };
 
   const handleVendorDetail = (vendor: Vendor) => {
-    setSelectedVendor(vendor);
-    navigate("vendor-detail", "vendors");
+    const id = vendor.id ?? vendor.vendorId;
+    if (id) void handleVendorSelect(id);
   };
 
   // Open the latest vendor record from a dashboard activity or map marker.
@@ -633,6 +639,7 @@ function AdminDashboardApp() {
               onMonitorVendors={() => navigate("vendors", "vendors")}
               onManageUsers={() => navigate("users", "users")}
               onVendorSelect={handleVendorSelect}
+              onViewReports={() => navigate("reports", "reports")}
             />
             <LiveVendorMap onVendorSelect={handleVendorSelect} />
           </div>
@@ -659,6 +666,9 @@ function AdminDashboardApp() {
 
       case "activity-log":
         return <ActivityLogPage />;
+
+      case "reports":
+        return <ReportsPage vendorId={reportVendorId} onClearVendor={() => setReportVendorId(undefined)} onOpenVendor={handleVendorSelect} />;
 
       case "booking-history":
         return <BookingHistoryPage />;
@@ -854,6 +864,7 @@ function AdminDashboardApp() {
           <VendorDetail
             vendor={selectedVendor}
             onBack={() => navigate("vendors", "vendors")}
+            onReports={() => { setReportVendorId(selectedVendor.id ?? selectedVendor.vendorId); navigate("reports", "reports"); }}
             onSuspend={() => handleAdminAction("suspend")}
             onReactivate={() => handleAdminAction("reactivate")}
           />
@@ -866,7 +877,15 @@ function AdminDashboardApp() {
             action={pendingAction}
             vendor={selectedVendor}
             onCancel={() => navigate("vendor-detail", "vendors")}
-            onConfirm={() => navigate("vendors", "vendors")}
+            onConfirm={async (reason) => {
+              const vendorId = selectedVendor.id ?? selectedVendor.vendorId;
+              if (!vendorId) throw new Error("Vendor unavailable.");
+              const state = await getDoc(doc(db, "vendorModeration", vendorId));
+              const caseId = state.data()?.currentCaseId;
+              if (!caseId) throw new Error("This vendor has no active warning. Open Reports to review customer complaints first.");
+              await decideCase(vendorId, caseId, pendingAction === "suspend" ? "suspend" : "resolve", reason);
+              await handleVendorSelect(vendorId);
+            }}
           />
         );
     }
@@ -878,11 +897,13 @@ function AdminDashboardApp() {
     { tab: "map", label: "Vendor map", icon: <MapIcon size={18} /> },
     { tab: "activity-log", label: "Activity log", icon: <History size={18} /> },
     { tab: "booking-history", label: "Booking history", icon: <CalendarDays size={18} /> },
+    { tab: "reports", label: "Reports & warnings", icon: <Flag size={18} /> },
     { tab: "vendors", label: "Vendors", icon: <Store size={18} /> },
     { tab: "users", label: "Users", icon: <Users size={18} /> },
   ];
 
   const pageTitle: Record<Screen, string> = {
+    reports: "Reports & warnings",
     dashboard: "Admin dashboard",
     analytics: "Analytics",
     map: "Vendor map",

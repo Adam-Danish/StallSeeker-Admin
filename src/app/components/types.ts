@@ -8,6 +8,7 @@ export interface Vendor {
   openingHours?: string;
   hours?: string;
   isOpen?: boolean;
+  listingStatus?: "active" | "suspended";
   latitude?: number;
   longitude?: number;
   lat?: number;

@@ -4,12 +4,13 @@ import {
   CheckCircle,
   Clock3,
   ChevronRight,
+  Flag,
   Power,
   PowerOff,
   Store,
   Users,
 } from "lucide-react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../../firebase";
 import { getRecordCreatedAt } from "../dateUtils";
 import { lookupAccountCreationDates } from "../userManagementApi";
@@ -20,6 +21,7 @@ interface Props {
   onMonitorVendors: () => void;
   onManageUsers: () => void;
   onVendorSelect: (vendorId: string) => void;
+  onViewReports: () => void;
 }
 
 interface DashboardUser {
@@ -47,7 +49,7 @@ const cardStyle = {
   boxShadow: "0 8px 24px rgba(45, 26, 14, 0.045)",
 };
 
-export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect }: Props) {
+export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect, onViewReports }: Props) {
   const [vendors, setVendors] = useState<(DashboardVendor & { profileImageUrl: string })[]>([]);
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [vendorStatus, setVendorStatus] = useState<ListenerStatus>("connecting");
@@ -57,6 +59,7 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect
   const [authCreatedAtByUid, setAuthCreatedAtByUid] = useState<Record<string, Date>>({});
   const [registrationDateError, setRegistrationDateError] = useState<string | null>(null);
   const attemptedDateLookups = useRef(new Set<string>());
+  const [pendingReportCount, setPendingReportCount] = useState(0);
 
   useEffect(() => {
     const updateLastSynced = () => setLastSynced(new Date());
@@ -112,9 +115,20 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect
       }
     );
 
+    const unsubscribeReports = onSnapshot(
+      query(collection(db, "vendorReports"), where("status", "==", "pending")),
+      (snapshot) => {
+        setPendingReportCount(snapshot.docs.length);
+      },
+      (error) => {
+        console.error("Error loading pending vendor reports:", error);
+      }
+    );
+
     return () => {
       unsubscribeVendors();
       unsubscribeUsers();
+      unsubscribeReports();
     };
   }, []);
 
@@ -210,16 +224,24 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect
   );
 
   const systemStatus: ListenerStatus =
-    vendorStatus === "error" || userStatus === "error"
-      ? "error"
-      : vendorStatus === "connected" && userStatus === "connected"
-        ? "connected"
-        : "connecting";
-  const statusText = systemStatus === "connected"
+    vendorStatus === "connected" && userStatus === "connected"
+      ? "connected"
+      : vendorStatus === "error" && userStatus === "error"
+        ? "error"
+        : vendorStatus === "connected"
+          ? "connected"
+          : vendorStatus === "error" || userStatus === "error"
+            ? "error"
+            : "connecting";
+
+  const statusText =
+    vendorStatus === "connected" && userStatus === "connected"
       ? "Live data connected"
-      : systemStatus === "error"
-        ? "Some data could not be loaded"
-        : "Connecting to live data";
+      : vendorStatus === "connected" && userStatus === "error"
+        ? "Live data connected (vendors)"
+        : systemStatus === "error"
+          ? "Some data could not be loaded"
+          : "Connecting to live data";
 
   // Match the Users and Analytics pages: include both collections once per account ID.
   const registeredUserCount = useMemo(
@@ -288,11 +310,33 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect
           <div>
             <h3 className="text-base font-semibold" style={{ color: "#2d241d" }}>Needs your attention</h3>
             <p className="mt-1 text-sm" style={{ color: "#82766a" }}>
-              Review listing details and account access.
+              Review listing details, vendor reports, and account access.
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={onViewReports}
+            className="flex items-center justify-between gap-3 rounded-xl p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm"
+            style={{
+              background: pendingReportCount > 0 ? "#fff9ef" : "#f5faf6",
+              border: "1px solid #e9e5dd",
+              cursor: "pointer",
+            }}
+          >
+            <span className="flex items-center gap-2">
+              {pendingReportCount > 0
+                ? <AlertTriangle size={17} color="#c47a17" />
+                : <CheckCircle size={17} color="#22845b" />}
+              <span className="text-sm font-medium" style={{ color: "#433a31" }}>
+                Pending vendor reports
+              </span>
+            </span>
+            <strong className="text-lg font-semibold" style={{ color: pendingReportCount > 0 ? "#b66b12" : "#22845b" }}>
+              {pendingReportCount}
+            </strong>
+          </button>
           <button
             type="button"
             onClick={onMonitorVendors}
@@ -397,12 +441,21 @@ export function AdminDashboard({ onMonitorVendors, onManageUsers, onVendorSelect
           <div className="mt-5 flex flex-col gap-2.5">
             <button
               type="button"
-              onClick={onMonitorVendors}
+              onClick={onViewReports}
               className="flex w-full items-center gap-2.5 rounded-xl px-4 py-3 text-left transition hover:brightness-95 active:scale-[0.99]"
               style={{ background: "#d95316", border: "none", cursor: "pointer" }}
             >
-              <Store size={16} color="#fff" />
-              <span className="text-sm font-semibold" style={{ color: "#fff" }}>Manage vendors</span>
+              <Flag size={16} color="#fff" />
+              <span className="text-sm font-semibold" style={{ color: "#fff" }}>Vendor reports & warnings</span>
+            </button>
+            <button
+              type="button"
+              onClick={onMonitorVendors}
+              className="flex w-full items-center gap-2.5 rounded-xl px-4 py-3 text-left transition hover:bg-[#faf8f4] active:scale-[0.99]"
+              style={{ background: "#fff", border: "1px solid #e9e5dd", cursor: "pointer" }}
+            >
+              <Store size={16} color="#d95316" />
+              <span className="text-sm font-semibold" style={{ color: "#433a31" }}>Manage vendors</span>
             </button>
             <button
               type="button"

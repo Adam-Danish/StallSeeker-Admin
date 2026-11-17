@@ -9,6 +9,8 @@ import {
   ReceiptText,
   RefreshCw,
   Search,
+  Store,
+  Wallet,
 } from "lucide-react";
 import { getBookingHistory, downloadBookingReceipt } from "../bookingHistoryApi";
 import { getRecordCreatedAt } from "../dateUtils";
@@ -82,6 +84,23 @@ function getBookingDate(data: Record<string, unknown>): Date | null {
     if (date) return date;
   }
   return getRecordCreatedAt(data) ?? parseDate(data.paymentPaidAt);
+}
+
+function getCents(data: Record<string, unknown>): number | null {
+  const centsValue = data.totalCents ?? data.amountCents ?? data.priceCents;
+  if (typeof centsValue === "number" && Number.isFinite(centsValue)) {
+    return Math.round(centsValue);
+  }
+  const value = data.amount ?? data.totalAmount ?? data.bookingAmount ?? data.paymentAmount ?? data.total ?? data.price;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.round(value * 100);
+  }
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[^0-9.-]/g, "");
+    const parsed = parseFloat(cleaned);
+    if (Number.isFinite(parsed)) return Math.round(parsed * 100);
+  }
+  return null;
 }
 
 function getAmount(data: Record<string, unknown>): string {
@@ -187,7 +206,7 @@ function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
   const amount = getAmount(data);
   const receiptPaidAt = parseDate(data.paymentPaidAt);
   const refundedCents = typeof data.paymentRefundedCents === "number" ? data.paymentRefundedCents : 0;
-  const totalCents = typeof data.totalCents === "number" ? data.totalCents : null;
+  const totalCents = getCents(data);
   const receiptItems = getReceiptItems(data);
   const hasReceipt = data.paymentMode === "test" && receiptPaidAt !== null;
 
@@ -263,8 +282,19 @@ function BookingReceiptDetails({ booking }: { booking: BookingRecord }) {
   );
 }
 
+interface VendorPayoutSummary {
+  vendor: string;
+  totalBookings: number;
+  paidBookings: number;
+  grossCents: number;
+  refundedCents: number;
+  netCents: number;
+}
+
 export function BookingHistoryPage() {
   const [bookings, setBookings] = useState<BookingRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<"bookings" | "payouts">("bookings");
+  const [payoutSearch, setPayoutSearch] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -325,20 +355,117 @@ export function BookingHistoryPage() {
   const pagination = useRecordPagination(filteredBookings, JSON.stringify([search, statusFilter, sort]));
   const paidCount = bookings.filter((booking) => isPaidStatus(booking.status)).length;
   const pendingCount = bookings.filter((booking) => isPendingStatus(booking.status)).length;
-  const summaryCards = [
-    { label: "Total bookings", value: bookings.length, icon: <CalendarDays size={18} />, color: "#d95316", background: "#fff0e8" },
-    { label: "Pending payment", value: pendingCount, icon: <Clock3 size={18} />, color: "#9b5f26", background: "#fbf3e8" },
-    { label: "Paid / completed", value: paidCount, icon: <CheckCircle2 size={18} />, color: "#22845b", background: "#eaf6ef" },
-    { label: "Other statuses", value: bookings.length - paidCount - pendingCount, icon: <CreditCard size={18} />, color: "#785333", background: "#f4efe7" },
+
+  const totalGrossCents = useMemo(() => {
+    return bookings
+      .filter((b) => isPaidStatus(b.status))
+      .reduce((sum, b) => sum + (b.totalCents ?? 0), 0);
+  }, [bookings]);
+
+  const totalRefundedCents = useMemo(() => {
+    return bookings.reduce((sum, b) => sum + b.refundedCents, 0);
+  }, [bookings]);
+
+  const totalPendingCents = useMemo(() => {
+    return bookings
+      .filter((b) => isPendingStatus(b.status))
+      .reduce((sum, b) => sum + (b.totalCents ?? 0), 0);
+  }, [bookings]);
+
+  const totalNetPayoutCents = Math.max(0, totalGrossCents - totalRefundedCents);
+
+  const vendorPayouts = useMemo<VendorPayoutSummary[]>(() => {
+    const map = new Map<string, VendorPayoutSummary>();
+    for (const b of bookings) {
+      const v = b.vendor || "Unknown vendor";
+      if (!map.has(v)) {
+        map.set(v, {
+          vendor: v,
+          totalBookings: 0,
+          paidBookings: 0,
+          grossCents: 0,
+          refundedCents: 0,
+          netCents: 0,
+        });
+      }
+      const entry = map.get(v)!;
+      entry.totalBookings += 1;
+      entry.refundedCents += b.refundedCents;
+      if (isPaidStatus(b.status)) {
+        entry.paidBookings += 1;
+        entry.grossCents += b.totalCents ?? 0;
+      }
+    }
+    for (const entry of map.values()) {
+      entry.netCents = Math.max(0, entry.grossCents - entry.refundedCents);
+    }
+    return Array.from(map.values()).sort((a, b) => b.netCents - a.netCents);
+  }, [bookings]);
+
+  const filteredVendorPayouts = useMemo(() => {
+    const q = payoutSearch.trim().toLowerCase();
+    if (!q) return vendorPayouts;
+    return vendorPayouts.filter((p) => p.vendor.toLowerCase().includes(q));
+  }, [vendorPayouts, payoutSearch]);
+
+  const bookingSummaryCards = [
+    { label: "Total bookings", value: String(bookings.length), icon: <CalendarDays size={18} />, color: "#d95316", background: "#fff0e8" },
+    { label: "Pending payment", value: String(pendingCount), icon: <Clock3 size={18} />, color: "#9b5f26", background: "#fbf3e8" },
+    { label: "Paid / completed", value: String(paidCount), icon: <CheckCircle2 size={18} />, color: "#22845b", background: "#eaf6ef" },
+    { label: "Other statuses", value: String(bookings.length - paidCount - pendingCount), icon: <CreditCard size={18} />, color: "#785333", background: "#f4efe7" },
   ];
+
+  const payoutSummaryCards = [
+    { label: "Gross revenue collected", value: formatMoney(totalGrossCents), icon: <Wallet size={18} />, color: "#22845b", background: "#eaf6ef" },
+    { label: "Net vendor payouts", value: formatMoney(totalNetPayoutCents), icon: <Store size={18} />, color: "#d95316", background: "#fff0e8" },
+    { label: "Total refunded", value: formatMoney(totalRefundedCents), icon: <CircleAlert size={18} />, color: "#b54740", background: "#fff0ed" },
+    { label: "Pending settlements", value: formatMoney(totalPendingCents), icon: <Clock3 size={18} />, color: "#9b5f26", background: "#fbf3e8" },
+  ];
+
+  const summaryCards = activeTab === "bookings" ? bookingSummaryCards : payoutSummaryCards;
 
   return (
     <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-10">
       <div>
-        <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>Booking history</h2>
+        <h2 className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>
+          {activeTab === "bookings" ? "Booking history" : "Vendor payouts"}
+        </h2>
         <p className="admin-intro mt-1.5" style={{ color: "#82766a" }}>
-          Review booking records and their payment status.
+          {activeTab === "bookings"
+            ? "Review individual customer booking records, orders, and payment statuses."
+            : "Review financial settlement totals, refunds, and net payout balances per stall."}
         </p>
+      </div>
+
+      <div className="flex border-b" style={{ borderColor: "#e9e5dd" }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab("bookings")}
+          className="flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition"
+          style={{
+            borderColor: activeTab === "bookings" ? "#d95316" : "transparent",
+            color: activeTab === "bookings" ? "#d95316" : "#75685b",
+            background: "transparent",
+            cursor: "pointer",
+          }}
+        >
+          <History size={16} />
+          <span>All bookings ({bookings.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("payouts")}
+          className="flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition"
+          style={{
+            borderColor: activeTab === "payouts" ? "#d95316" : "transparent",
+            color: activeTab === "payouts" ? "#d95316" : "#75685b",
+            background: "transparent",
+            cursor: "pointer",
+          }}
+        >
+          <Wallet size={16} />
+          <span>Payout summary ({vendorPayouts.length} vendors)</span>
+        </button>
       </div>
 
       <div className="admin-metrics">
@@ -348,49 +475,145 @@ export function BookingHistoryPage() {
               <span className="admin-metric-icon flex h-10 w-10 items-center justify-center rounded-xl" style={{ color: card.color, background: card.background }}>
                 {card.icon}
               </span>
-              <strong className="text-3xl font-semibold tracking-tight" style={{ color: "#2d241d" }}>{card.value}</strong>
+              <strong className="text-2xl font-semibold tracking-tight sm:text-3xl" style={{ color: "#2d241d" }}>{card.value}</strong>
             </div>
             <p className="mt-4 text-sm font-medium" style={{ color: "#82766a" }}>{card.label}</p>
           </div>
         ))}
       </div>
 
-      <section className="rounded-2xl p-4 sm:p-5" style={cardStyle}>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3" style={{ background: "#faf8f4", border: "1px solid #e9e5dd" }}>
-            <Search size={16} color="#a17b58" />
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search booking, customer, or vendor..."
-              className="w-full bg-transparent py-3 text-sm outline-none"
-              style={{ color: "#433a31" }}
-            />
-          </label>
-          <select
-            aria-label="Filter bookings by status"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-xl px-3 py-3 text-sm outline-none"
-            style={{ color: "#433a31", background: "#faf8f4", border: "1px solid #e9e5dd" }}
-          >
-            <option value="all">All statuses</option>
-            {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
-          </select>
-          <RecordSortSelect label="bookings" nameLabel="Customer" value={sort} onChange={setSort} />
-          <button
-            type="button"
-            onClick={() => setReloadKey((key) => key + 1)}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:bg-[#faf8f4] disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ border: "1px solid #e9e5dd", color: "#655848", background: "#fff" }}
-          >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-            Refresh
-          </button>
-        </div>
-      </section>
+      {activeTab === "payouts" ? (
+        <section className="overflow-hidden rounded-2xl" style={cardStyle} aria-label="Vendor payouts summary">
+          <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6" style={{ borderColor: "#f0ede7" }}>
+            <div className="flex items-center gap-2">
+              <Store size={17} color="#d95316" />
+              <h3 className="text-sm font-semibold" style={{ color: "#2d241d" }}>Vendor payout breakdown</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 rounded-xl px-3 py-1.5" style={{ background: "#faf8f4", border: "1px solid #e9e5dd" }}>
+                <Search size={14} color="#a17b58" />
+                <input
+                  type="search"
+                  value={payoutSearch}
+                  onChange={(e) => setPayoutSearch(e.target.value)}
+                  placeholder="Filter by vendor / stall..."
+                  className="bg-transparent text-xs outline-none"
+                  style={{ color: "#433a31", width: "180px" }}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => setReloadKey((key) => key + 1)}
+                disabled={loading}
+                className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold"
+                style={{ borderColor: "#e9e5dd", color: "#655848", background: "#fff" }}
+              >
+                <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <p role="status" className="px-6 py-10 text-center text-sm" style={{ color: "#82766a" }}>Loading payout summary…</p>
+          ) : error ? (
+            <div className="px-6 py-8 text-center" role="alert">
+              <CircleAlert size={20} className="mx-auto mb-2" color="#b54740" />
+              <p className="text-sm" style={{ color: "#b54740" }}>{error}</p>
+            </div>
+          ) : filteredVendorPayouts.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead style={{ color: "#7a6c5d", background: "#faf8f4" }}>
+                  <tr>
+                    <th className="px-5 py-3 font-semibold sm:px-6">Vendor / Stall</th>
+                    <th className="px-5 py-3 font-semibold sm:px-6">Total Bookings</th>
+                    <th className="px-5 py-3 font-semibold sm:px-6">Paid Bookings</th>
+                    <th className="px-5 py-3 font-semibold sm:px-6">Gross Volume</th>
+                    <th className="px-5 py-3 font-semibold sm:px-6">Refunded</th>
+                    <th className="px-5 py-3 font-semibold sm:px-6">Net Payout Due</th>
+                    <th className="px-5 py-3 font-semibold sm:px-6">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredVendorPayouts.map((vp) => (
+                    <tr key={vp.vendor} className="border-t" style={{ borderColor: "#f0ede7" }}>
+                      <td className="px-5 py-4 font-semibold" style={{ color: "#433a31" }}>
+                        <div className="flex items-center gap-2">
+                          <Store size={15} color="#d95316" />
+                          <span>{vp.vendor}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4" style={{ color: "#655848" }}>{vp.totalBookings}</td>
+                      <td className="px-5 py-4" style={{ color: "#655848" }}>{vp.paidBookings}</td>
+                      <td className="px-5 py-4 font-medium" style={{ color: "#433a31" }}>{formatMoney(vp.grossCents)}</td>
+                      <td className="px-5 py-4" style={{ color: vp.refundedCents > 0 ? "#b54740" : "#655848" }}>
+                        {vp.refundedCents > 0 ? formatMoney(vp.refundedCents) : "—"}
+                      </td>
+                      <td className="px-5 py-4 font-semibold" style={{ color: vp.netCents > 0 ? "#22845b" : "#433a31" }}>
+                        {formatMoney(vp.netCents)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                          style={{
+                            color: vp.netCents > 0 ? "#22845b" : "#655848",
+                            background: vp.netCents > 0 ? "#eaf6ef" : "#f4efe7",
+                          }}
+                        >
+                          {vp.netCents > 0 ? "Ready for payout" : "No balance"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center px-6 py-12 text-center">
+              <Store size={20} className="mb-2 text-[#a17b58]" />
+              <p className="text-sm font-semibold" style={{ color: "#433a31" }}>No vendor payout records found</p>
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="rounded-2xl p-4 sm:p-5" style={cardStyle}>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3" style={{ background: "#faf8f4", border: "1px solid #e9e5dd" }}>
+                <Search size={16} color="#a17b58" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search booking, customer, or vendor..."
+                  className="w-full bg-transparent py-3 text-sm outline-none"
+                  style={{ color: "#433a31" }}
+                />
+              </label>
+              <select
+                aria-label="Filter bookings by status"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="rounded-xl px-3 py-3 text-sm outline-none"
+                style={{ color: "#433a31", background: "#faf8f4", border: "1px solid #e9e5dd" }}
+              >
+                <option value="all">All statuses</option>
+                {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+              <RecordSortSelect label="bookings" nameLabel="Customer" value={sort} onChange={setSort} />
+              <button
+                type="button"
+                onClick={() => setReloadKey((key) => key + 1)}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition hover:bg-[#faf8f4] disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ border: "1px solid #e9e5dd", color: "#655848", background: "#fff" }}
+              >
+                <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+                Refresh
+              </button>
+            </div>
+          </section>
 
       <section className="overflow-hidden rounded-2xl" style={cardStyle} aria-label="Booking history records">
         <div className="flex items-center justify-between gap-2 border-b px-5 py-4 sm:px-6" style={{ borderColor: "#f0ede7" }}>
@@ -498,6 +721,8 @@ export function BookingHistoryPage() {
         )}
         {!loading && !error && <RecordPagination label="bookings" {...pagination} />}
       </section>
+      </>
+      )}
       <Dialog open={selectedReceipt !== null} onOpenChange={(open) => { if (!open) setSelectedReceipt(null); }}>
         <DialogContent className="max-h-[calc(100dvh-32px)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
