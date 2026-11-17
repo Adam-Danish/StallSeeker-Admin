@@ -6,6 +6,7 @@ import {
   Map as MapIcon,
   History,
   CalendarDays,
+  Landmark,
   Moon,
   Sun,
   LogOut,
@@ -31,6 +32,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { ActivityLogPage, type ActivityEvent } from "./components/ActivityLogPage";
 import { BookingHistoryPage } from "./components/BookingHistoryPage";
+import { PayoutsPage } from "./components/PayoutsPage";
 import { recordAdminActivity } from "./adminActivityApi";
 import {
   lookupAccountCreationDates,
@@ -46,8 +48,13 @@ import { ActionConfirmation } from "./components/ActionConfirmation";
 import { LiveVendorMap } from "./LiveMap";
 import type { Vendor, AdminAction } from "./components/types";
 
+<<<<<<< HEAD
 type Screen = "reports" | "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
 type NavTab = "reports" | "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users";
+=======
+type Screen = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "payouts" | "vendors" | "users" | "vendor-detail" | "action-confirm";
+type NavTab = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "payouts" | "vendors" | "users";
+>>>>>>> 979994de87259a07beae9a8cf2645db8eb116a7b
 
 function firstNonEmptyString(...values: unknown[]): string {
   for (const value of values) {
@@ -465,6 +472,7 @@ function AdminDashboardApp() {
 
   const handleTabPress = (tab: NavTab) => {
     setMobileMenuOpen(false);
+<<<<<<< HEAD
     setActiveTab(tab);
     if (tab === "dashboard") setScreen("dashboard");
     if (tab === "analytics") setScreen("analytics");
@@ -474,6 +482,9 @@ function AdminDashboardApp() {
     if (tab === "booking-history") setScreen("booking-history");
     if (tab === "vendors") setScreen("vendors");
     if (tab === "users") setScreen("users");
+=======
+    navigate(tab, tab);
+>>>>>>> 979994de87259a07beae9a8cf2645db8eb116a7b
   };
 
   const recordActivity = async (event: ActivityEvent) => {
@@ -672,6 +683,9 @@ function AdminDashboardApp() {
 
       case "booking-history":
         return <BookingHistoryPage />;
+
+      case "payouts":
+        return <PayoutsPage />;
 
       case "vendors":
         return (
@@ -897,7 +911,11 @@ function AdminDashboardApp() {
     { tab: "map", label: "Vendor map", icon: <MapIcon size={18} /> },
     { tab: "activity-log", label: "Activity log", icon: <History size={18} /> },
     { tab: "booking-history", label: "Booking history", icon: <CalendarDays size={18} /> },
+<<<<<<< HEAD
     { tab: "reports", label: "Reports & warnings", icon: <Flag size={18} /> },
+=======
+    { tab: "payouts", label: "Payouts", icon: <Landmark size={18} /> },
+>>>>>>> 979994de87259a07beae9a8cf2645db8eb116a7b
     { tab: "vendors", label: "Vendors", icon: <Store size={18} /> },
     { tab: "users", label: "Users", icon: <Users size={18} /> },
   ];
@@ -909,6 +927,7 @@ function AdminDashboardApp() {
     map: "Vendor map",
     "activity-log": "Activity log",
     "booking-history": "Booking history",
+    payouts: "Vendor Payouts",
     vendors: "Monitor Vendors",
     users: "User Management",
     "vendor-detail": "Vendor Detail",
