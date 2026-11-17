@@ -189,7 +189,7 @@ function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
   const refundedCents = typeof data.paymentRefundedCents === "number" ? data.paymentRefundedCents : 0;
   const totalCents = typeof data.totalCents === "number" ? data.totalCents : null;
   const receiptItems = getReceiptItems(data);
-  const hasReceipt = data.paymentMode === "test" && receiptPaidAt !== null;
+  const hasReceipt = data.paymentMode === "live" && receiptPaidAt !== null;
 
   return {
     id,
@@ -258,7 +258,7 @@ function BookingReceiptDetails({ booking }: { booking: BookingRecord }) {
         )}
       </div>
       {(booking.status !== "paid" || booking.refundedCents > 0) && <p>Current status: {booking.status}</p>}
-      <p className="text-xs" style={{ color: "#82766a" }}>Stripe test payment</p>
+      <p className="text-xs" style={{ color: "#82766a" }}>Stripe payment</p>
     </div>
   );
 }

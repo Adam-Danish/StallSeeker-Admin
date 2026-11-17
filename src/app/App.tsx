@@ -462,14 +462,7 @@ function AdminDashboardApp() {
 
   const handleTabPress = (tab: NavTab) => {
     setMobileMenuOpen(false);
-    setActiveTab(tab);
-    if (tab === "dashboard") setScreen("dashboard");
-    if (tab === "analytics") setScreen("analytics");
-    if (tab === "map") setScreen("map");
-    if (tab === "activity-log") setScreen("activity-log");
-    if (tab === "booking-history") setScreen("booking-history");
-    if (tab === "vendors") setScreen("vendors");
-    if (tab === "users") setScreen("users");
+    navigate(tab, tab);
   };
 
   const recordActivity = async (event: ActivityEvent) => {
