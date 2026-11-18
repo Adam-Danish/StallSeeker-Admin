@@ -48,13 +48,8 @@ import { ActionConfirmation } from "./components/ActionConfirmation";
 import { LiveVendorMap } from "./LiveMap";
 import type { Vendor, AdminAction } from "./components/types";
 
-<<<<<<< HEAD
-type Screen = "reports" | "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users" | "vendor-detail" | "action-confirm";
-type NavTab = "reports" | "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "vendors" | "users";
-=======
-type Screen = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "payouts" | "vendors" | "users" | "vendor-detail" | "action-confirm";
-type NavTab = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "payouts" | "vendors" | "users";
->>>>>>> 979994de87259a07beae9a8cf2645db8eb116a7b
+type Screen = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "payouts" | "vendors" | "users" | "vendor-detail" | "action-confirm" | "reports";
+type NavTab = "dashboard" | "analytics" | "map" | "activity-log" | "booking-history" | "payouts" | "vendors" | "users" | "reports";
 
 function firstNonEmptyString(...values: unknown[]): string {
   for (const value of values) {
@@ -138,17 +133,29 @@ function vendorFromData(id: string, data: DocumentData): Vendor {
     ),
     isAccountDisabled: Boolean(data.isAccountDisabled),
     createdAt: getRecordCreatedAt(data),
-  };
+  
 }
 
 function AdminDashboardApp() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [screen, setScreen] = useState<Screen>("dashboard");
-  const [activeTab, setActiveTab] = useState<NavTab>("dashboard");
+  const [screen, setScreen] = useState<Screen>(() => {
+    const saved = window.localStorage.getItem("stallseeker-admin-screen");
+    return (saved as Screen) ?? "dashboard";
+  });
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    const saved = window.localStorage.getItem("stallseeker-admin-tab");
+    return (saved as NavTab) ?? "dashboard";
+  });
   const [darkMode, setDarkMode] = useState(
     () => window.localStorage.getItem("stallseeker-admin-theme") === "dark"
   );
-  const [signOutError, setSignOutError] = useState<string | null>(null);
+  useEffect(() => {
+    window.localStorage.setItem('stallseeker-admin-screen', screen);
+  }, [screen]);
+
+  useEffect(() => {
+    window.localStorage.setItem('stallseeker-admin-tab', activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -163,7 +170,7 @@ function AdminDashboardApp() {
       console.error("Unable to sign out of the admin dashboard:", error);
       setSignOutError("Unable to sign out. Please try again.");
     }
-  };
+  
 
   // Data State
   const [vendorsList, setVendorsList] = useState<Vendor[]>([]);
@@ -199,7 +206,7 @@ function AdminDashboardApp() {
       const docs = snapshot.docs.map((snapshot) => vendorFromData(snapshot.id, snapshot.data()));
       setVendorsList(docs);
     });
-    return () => { unsubscribe(); setVendorsList([]); };
+    return () => { unsubscribe(); setVendorsList([]); 
   }, [screen]);
 
   // 2. Fetch both "users" AND "vendors" collections and merge/cross-reference email
@@ -237,7 +244,7 @@ function AdminDashboardApp() {
       const result = await response.json() as {
         emails?: Array<{ uid: string; email: string | null }>;
         error?: string;
-      };
+      
 
       if (!response.ok) {
         throw new Error(result.error || `Account email lookup failed (${response.status}).`);
@@ -247,7 +254,7 @@ function AdminDashboardApp() {
       }
 
       return result.emails;
-    };
+    
 
     const updateCombinedList = () => {
       // Map user accounts by ID for fast email lookup.
@@ -269,7 +276,7 @@ function AdminDashboardApp() {
           ...v,
           email: resolvedEmail,
           phoneNumber: v.phoneNumber || matchingUser?.phoneNumber || "",
-        };
+        
       });
 
       // Combine both lists into a single map (prioritizing vendor roles when matching)
@@ -313,7 +320,7 @@ function AdminDashboardApp() {
           missingEmailUids.forEach((uid) => pendingEmailLookups.delete(uid));
           if (lookupSucceeded && isActive) updateCombinedList();
         });
-    };
+    
 
     // Listener 1: Regular users ("users" collection)
     const unsubUsers = onSnapshot(
@@ -354,7 +361,7 @@ function AdminDashboardApp() {
             ),
             role: (roleStr === "vendor" || roleStr === "admin") ? (roleStr as 'vendor' | 'admin') : "customer",
             isAccountDisabled: Boolean(data.isAccountDisabled),
-          };
+          
         });
         updateCombinedList();
       },
@@ -405,7 +412,7 @@ function AdminDashboardApp() {
             ),
             role: (roleStr === "customer" || roleStr === "admin") ? (roleStr as 'customer' | 'admin') : "vendor",
             isAccountDisabled: Boolean(data.isAccountDisabled),
-          };
+          
         });
         updateCombinedList();
       },
@@ -417,7 +424,7 @@ function AdminDashboardApp() {
       unsubUsers();
       unsubVendors();
       setUsersList([]);
-    };
+    
   }, [screen]);
 
   useEffect(() => {
@@ -443,7 +450,7 @@ function AdminDashboardApp() {
 
     const loadRegistrationDates = async () => {
       try {
-        const resolvedDates: Record<string, Date> = {};
+        const resolvedDates: Record<string, Date> = {
         for (let index = 0; index < idsToLookUp.length; index += 100) {
           const dates = await lookupAccountCreationDates(idsToLookUp.slice(index, index + 100));
           dates.forEach((date, uid) => {
@@ -457,35 +464,34 @@ function AdminDashboardApp() {
           setAnalyticsDateLookupError("Vendor registration dates could not be loaded. Please try again later.");
         }
       }
-    };
+    
 
     void loadRegistrationDates();
     return () => {
       isActive = false;
-    };
+    
   }, [authCreatedAtByUid, screen, usersList, vendorsList]);
 
   const navigate = (s: Screen, tab?: NavTab) => {
     setScreen(s);
     if (tab) setActiveTab(tab);
-  };
+  
 
   const handleTabPress = (tab: NavTab) => {
     setMobileMenuOpen(false);
-<<<<<<< HEAD
     setActiveTab(tab);
+    // Update screen based on selected tab
     if (tab === "dashboard") setScreen("dashboard");
-    if (tab === "analytics") setScreen("analytics");
-    if (tab === "reports") { setReportVendorId(undefined); setScreen("reports"); }
-    if (tab === "map") setScreen("map");
-    if (tab === "activity-log") setScreen("activity-log");
-    if (tab === "booking-history") setScreen("booking-history");
-    if (tab === "vendors") setScreen("vendors");
-    if (tab === "users") setScreen("users");
-=======
-    navigate(tab, tab);
->>>>>>> 979994de87259a07beae9a8cf2645db8eb116a7b
-  };
+    else if (tab === "analytics") setScreen("analytics");
+    else if (tab === "reports") { setReportVendorId(undefined); setScreen("reports"); }
+    else if (tab === "map") setScreen("map");
+    else if (tab === "activity-log") setScreen("activity-log");
+    else if (tab === "booking-history") setScreen("booking-history");
+    else if (tab === "vendors") setScreen("vendors");
+    else if (tab === "users") setScreen("users");
+  
+
+  
 
   const recordActivity = async (event: ActivityEvent) => {
     try {
@@ -495,12 +501,12 @@ function AdminDashboardApp() {
       console.error("The admin change succeeded, but its activity could not be recorded:", error);
       setActivityNotice("The change was saved, but its activity log entry could not be recorded. Please contact your administrator.");
     }
-  };
+  
 
   const handleVendorDetail = (vendor: Vendor) => {
     const id = vendor.id ?? vendor.vendorId;
     if (id) void handleVendorSelect(id);
-  };
+  
 
   // Open the latest vendor record from a dashboard activity or map marker.
   const handleVendorSelect = async (vendorId: string) => {
@@ -513,12 +519,12 @@ function AdminDashboardApp() {
       console.error("Unable to open vendor:", error);
       setActivityNotice("Unable to load this vendor. Please try again.");
     }
-  };
+  
 
   const handleAdminAction = (action: AdminAction) => {
     setPendingAction(action);
     navigate("action-confirm");
-  };
+  
 
   // Edit Listing Handler
   const handleSaveListing = async (e: React.FormEvent) => {
@@ -543,7 +549,7 @@ function AdminDashboardApp() {
       entityName: editingVendor.stallName || editingVendor.name || "Vendor",
       summary: "Updated vendor listing details.",
     });
-  };
+  
 
   const handleDeleteListing = async (id: string) => {
     if (window.confirm("Are you sure you want to permanently delete this listing?")) {
@@ -562,7 +568,7 @@ function AdminDashboardApp() {
       const selectedId = selectedVendor?.id ?? selectedVendor?.vendorId;
       if (selectedId === id) setScreen("vendors");
     }
-  };
+  
 
   // Update Firebase Authentication login access and mirror the status on the profile.
   const handleToggleDisableUser = async (id: string, role?: string, currentStatus?: boolean) => {
@@ -590,7 +596,7 @@ function AdminDashboardApp() {
     } finally {
       setActiveUserActionId(null);
     }
-  };
+  
 
   // Delete the selected profile and its matching Firebase Authentication account.
   const handleDeleteUser = async (id: string, role?: string) => {
@@ -617,7 +623,7 @@ function AdminDashboardApp() {
     } finally {
       setActiveUserActionId(null);
     }
-  };
+  
 
   const customerCount = userPagination.summary?.customers ?? "—";
   const vendorCount = userPagination.summary?.vendors ?? "—";
@@ -903,7 +909,7 @@ function AdminDashboardApp() {
           />
         );
     }
-  };
+  
 
   const navItems: { tab: NavTab; label: string; icon: React.ReactNode }[] = [
     { tab: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
@@ -932,7 +938,7 @@ function AdminDashboardApp() {
     users: "User Management",
     "vendor-detail": "Vendor Detail",
     "action-confirm": "Confirm Action",
-  };
+  
 
   const navigation = (
     <>
@@ -1134,7 +1140,7 @@ function AuthenticatedAdminApp() {
     return () => {
       active = false;
       unsubscribe();
-    };
+    
   }, []);
 
   if (authGate === "loading" || authGate === "checking-admin") {
@@ -1163,7 +1169,7 @@ function AuthenticatedAdminApp() {
       console.error("Unable to sign out of the unauthorized admin account:", error);
       setAuthGateError("Unable to sign out. Reload the page and try again.");
     }
-  };
+  
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4" style={{ background: "#f8f7f3" }}>
