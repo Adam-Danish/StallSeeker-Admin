@@ -208,7 +208,7 @@ function mapBooking(id: string, data: Record<string, unknown>): BookingRecord {
   const refundedCents = typeof data.paymentRefundedCents === "number" ? data.paymentRefundedCents : 0;
   const totalCents = getCents(data);
   const receiptItems = getReceiptItems(data);
-  const hasReceipt = data.paymentMode === "live" && receiptPaidAt !== null;
+  const hasReceipt = receiptPaidAt !== null;
 
   return {
     id,
