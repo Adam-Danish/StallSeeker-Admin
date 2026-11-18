@@ -206,7 +206,7 @@ function AdminDashboardApp() {
       const docs = snapshot.docs.map((snapshot) => vendorFromData(snapshot.id, snapshot.data()));
       setVendorsList(docs);
     });
-    return () => { unsubscribe(); setVendorsList([]); 
+    return () => { unsubscribe(); setVendorsList([]); };
   }, [screen]);
 
   // 2. Fetch both "users" AND "vendors" collections and merge/cross-reference email
@@ -227,7 +227,7 @@ function AdminDashboardApp() {
       const projectId = auth.app.options.projectId;
       if (!projectId) {
         throw new Error("Firebase project ID is not configured.");
-      }
+      };
 
       const idToken = await currentUser.getIdToken();
       const response = await fetch(
@@ -247,11 +247,12 @@ function AdminDashboardApp() {
       
 
       if (!response.ok) {
-        throw new Error(result.error || `Account email lookup failed (${response.status}).`);
-      }
+        // Propagate server error or generic failure.
+        throw new Error(result.error ?? `Account email lookup failed (${response.status}).`);
+      };
       if (!Array.isArray(result.emails)) {
         throw new Error("Account email lookup returned an invalid response.");
-      }
+      };
 
       return result.emails;
     
@@ -263,7 +264,7 @@ function AdminDashboardApp() {
         email: user.email !== "No Email Provided"
           ? user.email
           : authEmails.get(user.id) || "No Email Provided",
-      }));
+      };));
       const userMap = new Map(resolvedCustomers.map((user) => [user.id, user]));
 
       const resolvedVendors = vendorAccounts.map((v) => {
@@ -277,7 +278,7 @@ function AdminDashboardApp() {
           email: resolvedEmail,
           phoneNumber: v.phoneNumber || matchingUser?.phoneNumber || "",
         
-      });
+      };);
 
       // Combine both lists into a single map (prioritizing vendor roles when matching)
       const finalMap = new Map<string, UserAccount>();
@@ -364,7 +365,7 @@ function AdminDashboardApp() {
           
         });
         updateCombinedList();
-      },
+      };,
       (err) => console.warn("Error loading users collection:", err.message)
     );
 
@@ -415,7 +416,7 @@ function AdminDashboardApp() {
           
         });
         updateCombinedList();
-      },
+      };,
       (err) => console.warn("Error loading vendors collection:", err.message)
     );
 
@@ -439,7 +440,7 @@ function AdminDashboardApp() {
         return !usersList.some(
           (user) => user.id === id && user.role === "vendor" && user.createdAt
         );
-      })
+      };)
       .map((vendor) => vendor.id ?? vendor.vendorId)
       .filter((id): id is string => Boolean(id));
 
@@ -458,12 +459,12 @@ function AdminDashboardApp() {
           });
         }
         if (isActive) setAuthCreatedAtByUid((current) => ({ ...current, ...resolvedDates }));
-      } catch (error) {
+      }; catch (error) {
         console.error("Unable to load vendor registration dates for analytics:", error);
         if (isActive) {
           setAnalyticsDateLookupError("Vendor registration dates could not be loaded. Please try again later.");
         }
-      }
+      };
     
 
     void loadRegistrationDates();
@@ -564,7 +565,7 @@ function AdminDashboardApp() {
         entityId: id,
         entityName: vendor?.stallName || vendor?.name || "Vendor",
         summary: "Deleted vendor listing.",
-      });
+      };);
       const selectedId = selectedVendor?.id ?? selectedVendor?.vendorId;
       if (selectedId === id) setScreen("vendors");
     }
@@ -589,7 +590,7 @@ function AdminDashboardApp() {
         entityId: id,
         entityName: account?.name || "Account",
         summary: `${currentStatus ? "Re-enabled" : "Disabled"} ${role ?? "user"} account access.`,
-      });
+      };);
     } catch (error) {
       console.error("Unable to change Firebase login access:", error);
       setUserActionError(getAccountActionErrorMessage(error));
@@ -616,7 +617,7 @@ function AdminDashboardApp() {
         entityId: id,
         entityName: account?.name || "Account",
         summary: `Deleted ${role ?? "user"} account and profile.`,
-      });
+      };);
     } catch (error) {
       console.error("Unable to delete Firebase account:", error);
       setUserActionError(getAccountActionErrorMessage(error));
@@ -917,11 +918,8 @@ function AdminDashboardApp() {
     { tab: "map", label: "Vendor map", icon: <MapIcon size={18} /> },
     { tab: "activity-log", label: "Activity log", icon: <History size={18} /> },
     { tab: "booking-history", label: "Booking history", icon: <CalendarDays size={18} /> },
-<<<<<<< HEAD
     { tab: "reports", label: "Reports & warnings", icon: <Flag size={18} /> },
-=======
     { tab: "payouts", label: "Payouts", icon: <Landmark size={18} /> },
->>>>>>> 979994de87259a07beae9a8cf2645db8eb116a7b
     { tab: "vendors", label: "Vendors", icon: <Store size={18} /> },
     { tab: "users", label: "Users", icon: <Users size={18} /> },
   ];
@@ -1119,7 +1117,7 @@ function AuthenticatedAdminApp() {
       if (!user) {
         setAuthGate("signed-out");
         return;
-      }
+      };
 
       setAuthGate("checking-admin");
       getDoc(doc(db, "users", user.uid))
